@@ -1,0 +1,213 @@
+:root {
+  color-scheme: light;
+  --bg-app: #f4f7fb;
+  --bg-panel: #ffffff;
+  --bg-sidebar: #172033;
+  --text-main: #182230;
+  --text-muted: #6a7485;
+  --border-color: #e6eaf2;
+  --brand-color: #2f6bff;
+  --brand-soft: rgba(47, 107, 255, 0.12);
+  --shadow-soft: 0 12px 32px rgba(20, 33, 61, 0.08);
+}
+
+body {
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f9 100%);
+  color: var(--text-main);
+}
+
+.main-layout {
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, #172033 0%, #101726 100%);
+  transition: width 0.2s ease;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  color: #fff;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.brand-text {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sidebar-menu {
+  border-right: none;
+  background: transparent;
+}
+
+.sidebar-menu.el-menu {
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: rgba(255, 255, 255, 0.78);
+  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.08);
+  --el-menu-active-color: #ffffff;
+}
+
+.layout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(8px);
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.header-subtitle,
+.header-user {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.layout-content {
+  padding: 24px;
+  background: transparent;
+}
+
+.page-container {
+  display: grid;
+  gap: 16px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.page-header p {
+  margin-top: 8px;
+  color: var(--text-muted);
+}
+
+.page-body {
+  display: grid;
+  gap: 16px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--brand-color);
+}
+
+.metric-note {
+  margin-top: 8px;
+  color: var(--text-muted);
+}
+
+.placeholder-card {
+  margin-top: 0;
+}
+
+.login-page,
+.status-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(47, 107, 255, 0.18), transparent 30%),
+    linear-gradient(180deg, #f6f9ff 0%, #eef3f9 100%);
+}
+
+.login-card,
+.status-card {
+  width: min(100%, 420px);
+  border: 1px solid rgba(47, 107, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.login-heading {
+  margin-bottom: 24px;
+}
+
+.login-heading h1 {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.login-heading p {
+  margin-top: 10px;
+  color: var(--text-muted);
+}
+
+.login-button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.status-card {
+  text-align: center;
+}
+
+.status-card h1 {
+  font-size: 56px;
+  color: var(--brand-color);
+}
+
+.status-card p {
+  margin: 12px 0 24px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  .layout-header {
+    height: auto;
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .layout-content {
+    padding: 16px;
+  }
+}
