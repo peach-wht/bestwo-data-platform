@@ -42,9 +42,13 @@ const handleLogout = () => {
           <el-icon><Connection /></el-icon>
           <span>Tasks</span>
         </el-menu-item>
+        <el-menu-item index="/warehouse/analysis">
+          <el-icon><DataLine /></el-icon>
+          <span>Order Analysis</span>
+        </el-menu-item>
         <el-menu-item index="/warehouse/debug">
           <el-icon><DataLine /></el-icon>
-          <span>Warehouse</span>
+          <span>Warehouse Debug</span>
         </el-menu-item>
       </el-menu>
     </el-aside>

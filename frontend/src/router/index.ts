@@ -35,8 +35,14 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'warehouse',
         name: 'warehouse',
-        redirect: '/warehouse/debug',
+        redirect: '/warehouse/analysis',
         meta: { title: 'Warehouse' }
+      },
+      {
+        path: 'warehouse/analysis',
+        name: 'WarehouseOrderAnalysis',
+        component: () => import('@/views/warehouse/OrderAnalysisView.vue'),
+        meta: { title: 'Order Analysis' }
       },
       {
         path: 'warehouse/debug',

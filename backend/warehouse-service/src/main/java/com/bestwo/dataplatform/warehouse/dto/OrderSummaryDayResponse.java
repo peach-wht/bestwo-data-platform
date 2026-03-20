@@ -1,0 +1,73 @@
+package com.bestwo.dataplatform.warehouse.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.math.BigDecimal;
+
+public class OrderSummaryDayResponse {
+
+    @JsonProperty("stat_date")
+    private String statDate;
+
+    @JsonProperty("order_count")
+    private Long orderCount;
+
+    @JsonProperty("paid_order_count")
+    private Long paidOrderCount;
+
+    @JsonProperty("total_amount")
+    private BigDecimal totalAmount;
+
+    @JsonProperty("paid_amount")
+    private BigDecimal paidAmount;
+
+    @JsonProperty("refund_amount")
+    private BigDecimal refundAmount;
+
+    public String getStatDate() {
+        return statDate;
+    }
+
+    public void setStatDate(String statDate) {
+        this.statDate = statDate;
+    }
+
+    public Long getOrderCount() {
+        return orderCount;
+    }
+
+    public void setOrderCount(Long orderCount) {
+        this.orderCount = orderCount;
+    }
+
+    public Long getPaidOrderCount() {
+        return paidOrderCount;
+    }
+
+    public void setPaidOrderCount(Long paidOrderCount) {
+        this.paidOrderCount = paidOrderCount;
+    }
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
+    public BigDecimal getPaidAmount() {
+        return paidAmount;
+    }
+
+    public void setPaidAmount(BigDecimal paidAmount) {
+        this.paidAmount = paidAmount;
+    }
+
+    public BigDecimal getRefundAmount() {
+        return refundAmount;
+    }
+
+    public void setRefundAmount(BigDecimal refundAmount) {
+        this.refundAmount = refundAmount;
+    }
+}
