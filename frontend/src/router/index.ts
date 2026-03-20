@@ -7,7 +7,7 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/system/LoginView.vue'),
-    meta: { title: '登录' }
+    meta: { title: 'Login' }
   },
   {
     path: '/',
@@ -18,25 +18,31 @@ const routes: RouteRecordRaw[] = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/dashboard/DashboardView.vue'),
-        meta: { title: '仪表盘' }
+        meta: { title: 'Dashboard' }
       },
       {
         path: 'orders',
         name: 'orders',
         component: () => import('@/views/order/OrderListView.vue'),
-        meta: { title: '订单管理' }
+        meta: { title: 'Orders' }
       },
       {
         path: 'tasks',
         name: 'tasks',
         component: () => import('@/views/task/TaskListView.vue'),
-        meta: { title: '任务管理' }
+        meta: { title: 'Tasks' }
       },
       {
         path: 'warehouse',
         name: 'warehouse',
-        component: () => import('@/views/warehouse/WarehouseView.vue'),
-        meta: { title: '数仓管理' }
+        redirect: '/warehouse/debug',
+        meta: { title: 'Warehouse' }
+      },
+      {
+        path: 'warehouse/debug',
+        name: 'WarehouseDebug',
+        component: () => import('@/views/warehouse/WarehouseDebugView.vue'),
+        meta: { title: 'Warehouse Debug' }
       }
     ]
   },
@@ -44,7 +50,7 @@ const routes: RouteRecordRaw[] = [
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/system/NotFoundView.vue'),
-    meta: { title: '页面不存在' }
+    meta: { title: 'Not Found' }
   }
 ]
 

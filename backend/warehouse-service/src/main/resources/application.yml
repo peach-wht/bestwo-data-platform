@@ -6,8 +6,12 @@ spring:
     name: warehouse-service
 
 doris:
-  host: localhost
+  host: 127.0.0.1
   port: 9030
-  database: bestwo_warehouse
+  database: bestwo_dw
   username: root
-  password: change-me
+  password: DGut7850!!
+
+logging:
+  level:
+    com.bestwo.dataplatform.warehouse: INFO

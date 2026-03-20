@@ -1,23 +1,28 @@
-import axios from 'axios'
+import axios, { type AxiosRequestConfig } from 'axios'
 
-const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+const service = axios.create({
+  baseURL: '/api',
   timeout: 10000
 })
 
-http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('bestwo_token')
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-
-  return config
-})
-
-http.interceptors.response.use(
-  (response) => response.data,
+service.interceptors.response.use(
+  (response) => response,
   (error) => Promise.reject(error)
 )
+
+const http = {
+  get<T>(url: string, config?: AxiosRequestConfig) {
+    return service.get<T>(url, config).then((response) => response.data)
+  },
+  post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return service.post<T>(url, data, config).then((response) => response.data)
+  },
+  put<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return service.put<T>(url, data, config).then((response) => response.data)
+  },
+  delete<T>(url: string, config?: AxiosRequestConfig) {
+    return service.delete<T>(url, config).then((response) => response.data)
+  }
+}
 
 export default http

@@ -12,6 +12,6 @@ public class HealthController {
 
     @GetMapping
     public Mono<ApiResponse<String>> health() {
-        return Mono.just(ApiResponse.success("gateway-service is running"));
+        return Mono.just(ApiResponse.success("gateway-service ok"));
     }
 }

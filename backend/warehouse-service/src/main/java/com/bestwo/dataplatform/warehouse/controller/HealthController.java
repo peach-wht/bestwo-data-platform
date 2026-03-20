@@ -11,6 +11,6 @@ public class HealthController {
 
     @GetMapping
     public ApiResponse<String> health() {
-        return ApiResponse.success("warehouse-service is running");
+        return ApiResponse.success("warehouse-service ok");
     }
 }

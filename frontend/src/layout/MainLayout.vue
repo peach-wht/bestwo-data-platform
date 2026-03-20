@@ -32,19 +32,19 @@ const handleLogout = () => {
       >
         <el-menu-item index="/dashboard">
           <el-icon><Monitor /></el-icon>
-          <span>仪表盘</span>
+          <span>Dashboard</span>
         </el-menu-item>
         <el-menu-item index="/orders">
           <el-icon><Box /></el-icon>
-          <span>订单管理</span>
+          <span>Orders</span>
         </el-menu-item>
         <el-menu-item index="/tasks">
           <el-icon><Connection /></el-icon>
-          <span>任务管理</span>
+          <span>Tasks</span>
         </el-menu-item>
-        <el-menu-item index="/warehouse">
+        <el-menu-item index="/warehouse/debug">
           <el-icon><DataLine /></el-icon>
-          <span>数仓管理</span>
+          <span>Warehouse</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -60,15 +60,15 @@ const handleLogout = () => {
           </el-button>
           <div>
             <h1 class="header-title">{{ appStore.systemTitle }}</h1>
-            <p class="header-subtitle">微信订单数据接入与数仓分析平台</p>
+            <p class="header-subtitle">WeChat order ingestion and warehouse analytics platform</p>
           </div>
         </div>
 
         <div class="header-right">
-          <span class="header-user">{{ userStore.username || '访客' }}</span>
+          <span class="header-user">{{ userStore.username || 'Guest' }}</span>
           <el-button link type="primary" @click="handleLogout">
             <el-icon><SwitchButton /></el-icon>
-            退出
+            Logout
           </el-button>
         </div>
       </el-header>
