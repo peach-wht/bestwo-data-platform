@@ -12,6 +12,11 @@ doris:
   username: root
   password: DGut7850!!
 
+mybatis-plus:
+  mapper-locations: classpath:/mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
 logging:
   level:
     com.bestwo.dataplatform.warehouse: INFO

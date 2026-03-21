@@ -6,9 +6,11 @@ import com.bestwo.dataplatform.warehouse.dto.OrderDetailResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderQueryRequest;
 import com.bestwo.dataplatform.warehouse.dto.OrderSummaryDayResponse;
 import com.bestwo.dataplatform.warehouse.dto.SummaryQueryRequest;
-import java.sql.Date;
+import com.bestwo.dataplatform.warehouse.mapper.WarehouseDorisMapper;
+import com.bestwo.dataplatform.warehouse.mapper.model.OrderTableSpec;
+import com.bestwo.dataplatform.warehouse.mapper.model.SummaryTableSpec;
 import java.sql.Timestamp;
-import java.util.ArrayList;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,29 +19,23 @@ import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DorisQueryService {
 
     private static final Logger log = LoggerFactory.getLogger(DorisQueryService.class);
-    private static final BeanPropertyRowMapper<OrderDetailResponse> ORDER_ROW_MAPPER =
-        BeanPropertyRowMapper.newInstance(OrderDetailResponse.class);
-    private static final BeanPropertyRowMapper<OrderSummaryDayResponse> SUMMARY_ROW_MAPPER =
-        BeanPropertyRowMapper.newInstance(OrderSummaryDayResponse.class);
 
-    private final JdbcTemplate jdbcTemplate;
+    private final WarehouseDorisMapper warehouseDorisMapper;
     private final DorisProperties dorisProperties;
 
-    public DorisQueryService(JdbcTemplate dorisJdbcTemplate, DorisProperties dorisProperties) {
-        this.jdbcTemplate = dorisJdbcTemplate;
+    public DorisQueryService(WarehouseDorisMapper warehouseDorisMapper, DorisProperties dorisProperties) {
+        this.warehouseDorisMapper = warehouseDorisMapper;
         this.dorisProperties = dorisProperties;
     }
 
     public Map<String, Object> ping() {
-        Integer result = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+        Integer result = warehouseDorisMapper.ping();
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("result", result);
         response.put("database", dorisProperties.getDatabase());
@@ -47,90 +43,35 @@ public class DorisQueryService {
     }
 
     public List<Map<String, Object>> queryTestOrders() {
-        String sql = "SELECT * FROM " + qualifiedTable("ods_wx_order") + " LIMIT 10";
-        return jdbcTemplate.queryForList(sql);
+        return warehouseDorisMapper.queryTestOrders();
     }
 
     public List<OrderDetailResponse> queryOrders(OrderQueryRequest request) {
         OrderTableSpec tableSpec = resolveOrderTableSpec();
-        SqlWithArgs sqlWithArgs = buildOrderListSql(request, tableSpec);
-        return jdbcTemplate.query(sqlWithArgs.sql(), ORDER_ROW_MAPPER, sqlWithArgs.args().toArray());
+        return warehouseDorisMapper.queryOrders(
+            tableSpec,
+            toStartTimestamp(request.getStartDate()),
+            toEndTimestamp(request.getEndDate()),
+            normalizeKeyword(request.getKeyword()),
+            request.getPageSize(),
+            (long) (request.getPageNum() - 1) * request.getPageSize()
+        );
     }
 
     public long countOrders(OrderQueryRequest request) {
         OrderTableSpec tableSpec = resolveOrderTableSpec();
-        SqlWithArgs sqlWithArgs = buildOrderCountSql(request, tableSpec);
-        Number total = jdbcTemplate.queryForObject(sqlWithArgs.sql(), Number.class, sqlWithArgs.args().toArray());
-        return total == null ? 0L : total.longValue();
+        Long total = warehouseDorisMapper.countOrders(
+            tableSpec,
+            toStartTimestamp(request.getStartDate()),
+            toEndTimestamp(request.getEndDate()),
+            normalizeKeyword(request.getKeyword())
+        );
+        return total == null ? 0L : total;
     }
 
     public List<OrderSummaryDayResponse> queryDaySummary(SummaryQueryRequest request) {
         SummaryTableSpec tableSpec = resolveSummaryTableSpec();
-        SqlWithArgs sqlWithArgs = buildDaySummarySql(request, tableSpec);
-        return jdbcTemplate.query(sqlWithArgs.sql(), SUMMARY_ROW_MAPPER, sqlWithArgs.args().toArray());
-    }
-
-    private SqlWithArgs buildOrderListSql(OrderQueryRequest request, OrderTableSpec tableSpec) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT ")
-            .append(tableSpec.orderIdSelect()).append(", ")
-            .append(tableSpec.orderNoSelect()).append(", ")
-            .append(tableSpec.orderStatusSelect()).append(", ")
-            .append(tableSpec.payStatusSelect()).append(", ")
-            .append(tableSpec.orderTimeSelect()).append(", ")
-            .append(tableSpec.payTimeSelect()).append(", ")
-            .append(tableSpec.totalAmountSelect()).append(", ")
-            .append(tableSpec.buyerNicknameSelect())
-            .append(" FROM ").append(tableSpec.tableName());
-
-        List<Object> args = appendOrderFilters(sql, request, tableSpec);
-        sql.append(" ORDER BY ").append(tableSpec.orderTimeColumn()).append(" DESC");
-        sql.append(" LIMIT ? OFFSET ?");
-        args.add(request.getPageSize());
-        args.add((long) (request.getPageNum() - 1) * request.getPageSize());
-        return new SqlWithArgs(sql.toString(), args);
-    }
-
-    private SqlWithArgs buildOrderCountSql(OrderQueryRequest request, OrderTableSpec tableSpec) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(1) FROM ").append(tableSpec.tableName());
-        List<Object> args = appendOrderFilters(sql, request, tableSpec);
-        return new SqlWithArgs(sql.toString(), args);
-    }
-
-    private List<Object> appendOrderFilters(StringBuilder sql, OrderQueryRequest request, OrderTableSpec tableSpec) {
-        List<Object> args = new ArrayList<>();
-        sql.append(" WHERE ").append(tableSpec.orderTimeColumn()).append(" >= ?");
-        sql.append(" AND ").append(tableSpec.orderTimeColumn()).append(" < ?");
-        args.add(Timestamp.valueOf(request.getStartDate().atStartOfDay()));
-        args.add(Timestamp.valueOf(request.getEndDate().plusDays(1).atStartOfDay()));
-
-        String keyword = normalizeKeyword(request.getKeyword());
-        if (keyword != null) {
-            sql.append(" AND ").append(tableSpec.orderNoColumn()).append(" LIKE ?");
-            args.add("%" + keyword + "%");
-        }
-        return args;
-    }
-
-    private SqlWithArgs buildDaySummarySql(SummaryQueryRequest request, SummaryTableSpec tableSpec) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT ")
-            .append(tableSpec.statDateSelect()).append(", ")
-            .append(tableSpec.orderCountSelect()).append(", ")
-            .append(tableSpec.paidOrderCountSelect()).append(", ")
-            .append(tableSpec.totalAmountSelect()).append(", ")
-            .append(tableSpec.paidAmountSelect()).append(", ")
-            .append(tableSpec.refundAmountSelect())
-            .append(" FROM ").append(tableSpec.tableName())
-            .append(" WHERE ").append(tableSpec.statDateColumn()).append(" >= ?")
-            .append(" AND ").append(tableSpec.statDateColumn()).append(" <= ?")
-            .append(" ORDER BY ").append(tableSpec.statDateColumn()).append(" ASC");
-
-        List<Object> args = new ArrayList<>();
-        args.add(Date.valueOf(request.getStartDate()));
-        args.add(Date.valueOf(request.getEndDate()));
-        return new SqlWithArgs(sql.toString(), args);
+        return warehouseDorisMapper.queryDaySummary(tableSpec, request.getStartDate(), request.getEndDate());
     }
 
     private OrderTableSpec resolveOrderTableSpec() {
@@ -160,7 +101,7 @@ public class DorisQueryService {
         );
 
         return new SummaryTableSpec(
-            qualifiedTable("ads_order_day_summary"),
+            "ads_order_day_summary",
             statDateColumn,
             stringSelect(statDateColumn, "statDate"),
             numericSelect(columns, List.of("order_count", "total_order_count"), "orderCount", true),
@@ -186,7 +127,7 @@ public class DorisQueryService {
         );
 
         return new OrderTableSpec(
-            qualifiedTable(tableName),
+            tableName,
             orderNoColumn,
             orderTimeColumn,
             stringSelect(orderIdColumn, "orderId"),
@@ -206,14 +147,12 @@ public class DorisQueryService {
     }
 
     private Set<String> getTableColumns(String tableName) {
-        String sql = "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?";
-        List<String> columns = jdbcTemplate.query(
-            sql,
-            (rs, rowNum) -> rs.getString("COLUMN_NAME").toLowerCase(Locale.ROOT),
-            dorisProperties.getDatabase(),
-            tableName
-        );
-        return new LinkedHashSet<>(columns);
+        List<String> columns = warehouseDorisMapper.listTableColumns(dorisProperties.getDatabase(), tableName);
+        Set<String> normalizedColumns = new LinkedHashSet<>();
+        for (String column : columns) {
+            normalizedColumns.add(column.toLowerCase(Locale.ROOT));
+        }
+        return normalizedColumns;
     }
 
     private String resolveRequiredColumn(Set<String> columns, List<String> candidates, String fieldName) {
@@ -268,37 +207,11 @@ public class DorisQueryService {
         return normalized.isEmpty() ? null : normalized;
     }
 
-    private String qualifiedTable(String tableName) {
-        return dorisProperties.getDatabase() + "." + tableName;
+    private Timestamp toStartTimestamp(LocalDate startDate) {
+        return Timestamp.valueOf(startDate.atStartOfDay());
     }
 
-    private record SqlWithArgs(String sql, List<Object> args) {
-    }
-
-    private record OrderTableSpec(
-        String tableName,
-        String orderNoColumn,
-        String orderTimeColumn,
-        String orderIdSelect,
-        String orderNoSelect,
-        String orderStatusSelect,
-        String payStatusSelect,
-        String orderTimeSelect,
-        String payTimeSelect,
-        String totalAmountSelect,
-        String buyerNicknameSelect
-    ) {
-    }
-
-    private record SummaryTableSpec(
-        String tableName,
-        String statDateColumn,
-        String statDateSelect,
-        String orderCountSelect,
-        String paidOrderCountSelect,
-        String totalAmountSelect,
-        String paidAmountSelect,
-        String refundAmountSelect
-    ) {
+    private Timestamp toEndTimestamp(LocalDate endDate) {
+        return Timestamp.valueOf(endDate.plusDays(1).atStartOfDay());
     }
 }
