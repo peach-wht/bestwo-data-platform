@@ -6,11 +6,11 @@ spring:
     name: warehouse-service
 
 doris:
-  host: 127.0.0.1
-  port: 9030
-  database: bestwo_dw
-  username: root
-  password: DGut7850!!
+  host: ${DORIS_HOST:127.0.0.1}
+  port: ${DORIS_PORT:9030}
+  database: ${DORIS_DATABASE:bestwo_dw}
+  username: ${DORIS_USERNAME:root}
+  password: ${DORIS_PASSWORD:CHANGE_ME}
 
 mybatis-plus:
   mapper-locations: classpath:/mapper/*.xml
