@@ -21,7 +21,7 @@ spec:
         - name: acr-registry-secret
       containers:
         - name: warehouse-service
-          image: wuhaotian-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/bestwo/warehouse:test
+          image: wuhaotian-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/bestwo/warehouse:20260321-1
           imagePullPolicy: Always
           ports:
             - name: http
