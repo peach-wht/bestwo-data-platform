@@ -1,0 +1,175 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+        skipDefaultCheckout(true)
+    }
+
+    parameters {
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: 'Optional image tag. Leave empty to use short Git commit SHA, then fall back to BUILD_NUMBER.'
+        )
+        string(
+            name: 'IMAGE_REPO',
+            defaultValue: 'wuhaotian-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/bestwo/gateway',
+            description: 'Target ACR image repository without tag.'
+        )
+    }
+
+    environment {
+        SERVICE_NAME = 'gateway-service'
+        NAMESPACE = 'app'
+        DEPLOYMENT_NAME = 'gateway-service'
+        CONTAINER_NAME = 'gateway-service'
+        SERVICE_MANIFEST = 'deploy/k8s/gateway-service-service.yaml'
+        DEPLOYMENT_MANIFEST = 'deploy/k8s/gateway-service-deployment.yaml'
+        INGRESS_MANIFEST = 'deploy/k8s/gateway-service-ingress.yaml'
+        GIT_CREDENTIALS_ID = 'git'
+        REGISTRY_CREDENTIALS_ID = 'acr'
+        MAVEN_SETTINGS = '/var/jenkins_home/.m2/settings.xml'
+    }
+
+    stages {
+        stage('Env Check') {
+            steps {
+                sh """
+                    set -eu
+
+                    command -v git >/dev/null 2>&1
+                    command -v mvn >/dev/null 2>&1
+                    command -v docker >/dev/null 2>&1
+                    command -v kubectl >/dev/null 2>&1
+                    test -f ${MAVEN_SETTINGS}
+                """
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                script {
+                    def repoUrl = scm.userRemoteConfigs[0].url
+                    def branchSpecs = scm.branches ?: [[name: env.BRANCH_NAME ? "*/${env.BRANCH_NAME}" : '*/main']]
+
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: branchSpecs,
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [],
+                        userRemoteConfigs: [[
+                            url: repoUrl,
+                            credentialsId: env.GIT_CREDENTIALS_ID
+                        ]]
+                    ])
+                }
+            }
+        }
+
+        stage('Build Jar') {
+            steps {
+                script {
+                    env.CURRENT_BRANCH = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'unknown'
+                    env.GIT_SHORT_SHA = sh(
+                        script: 'git rev-parse --short=8 HEAD',
+                        returnStdout: true
+                    ).trim()
+                    env.RESOLVED_IMAGE_TAG = params.IMAGE_TAG?.trim() ? params.IMAGE_TAG.trim() : (env.GIT_SHORT_SHA ?: env.BUILD_NUMBER)
+                    env.FULL_IMAGE = "${params.IMAGE_REPO}:${env.RESOLVED_IMAGE_TAG}"
+                    env.REGISTRY_HOST = params.IMAGE_REPO.tokenize('/')[0]
+                }
+
+                sh """
+                    set -eu
+
+                    echo '=== SCM Context ==='
+                    echo 'Branch: ${CURRENT_BRANCH}'
+                    echo 'Commit: ${GIT_SHORT_SHA}'
+                    echo 'Image: ${FULL_IMAGE}'
+
+                    echo '=== Maven Build ==='
+                    cd backend
+                    mvn -s ${MAVEN_SETTINGS} -pl gateway-service -am clean package -DskipTests
+                """
+            }
+        }
+
+        stage('Prepare app.jar') {
+            steps {
+                sh """
+                    set -eu
+
+                    FAT_JAR=\$(find backend/gateway-service/target -maxdepth 1 -type f -name '*.jar' ! -name '*.jar.original' | head -n 1)
+                    if [ -z "\$FAT_JAR" ]; then
+                      echo 'ERROR: fat jar not found after Maven build'
+                      exit 1
+                    fi
+
+                    cp "\$FAT_JAR" backend/gateway-service/app.jar
+                    ls -lh backend/gateway-service/app.jar
+                """
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh """
+                    set -eu
+
+                    test -f backend/gateway-service/Dockerfile
+                    docker build -f backend/gateway-service/Dockerfile -t ${FULL_IMAGE} .
+                """
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: env.REGISTRY_CREDENTIALS_ID,
+                        usernameVariable: 'ACR_USERNAME',
+                        passwordVariable: 'ACR_PASSWORD'
+                    )
+                ]) {
+                    sh """
+                        set -eu
+
+                        echo "\$ACR_PASSWORD" | docker login ${REGISTRY_HOST} --username "\$ACR_USERNAME" --password-stdin
+                        docker push ${FULL_IMAGE}
+                        docker logout ${REGISTRY_HOST} || true
+                    """
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh """
+                    set -eu
+
+                    test -f ${SERVICE_MANIFEST}
+                    test -f ${DEPLOYMENT_MANIFEST}
+                    test -f ${INGRESS_MANIFEST}
+
+                    kubectl -n ${NAMESPACE} apply -f ${SERVICE_MANIFEST}
+                    kubectl -n ${NAMESPACE} apply -f ${DEPLOYMENT_MANIFEST}
+                    kubectl -n ${NAMESPACE} apply -f ${INGRESS_MANIFEST}
+                    kubectl -n ${NAMESPACE} set image deployment/${DEPLOYMENT_NAME} ${CONTAINER_NAME}=${FULL_IMAGE}
+                    kubectl -n ${NAMESPACE} rollout status deployment/${DEPLOYMENT_NAME} --timeout=180s
+                    kubectl -n ${NAMESPACE} get pods -l app.kubernetes.io/name=${SERVICE_NAME} -o wide
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "gateway-service deployment succeeded: ${env.FULL_IMAGE}"
+        }
+        failure {
+            echo 'gateway-service deployment failed. Check the stage logs above to locate the issue.'
+        }
+    }
+}
