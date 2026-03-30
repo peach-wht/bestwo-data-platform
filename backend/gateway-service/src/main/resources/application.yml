@@ -10,7 +10,9 @@ spring:
         - id: warehouse-service
           uri: ${WAREHOUSE_SERVICE_URL:http://warehouse-service:8083}
           predicates:
-            - Path=/api/**
+            - Path=/api/warehouse/**
+          filters:
+            - StripPrefix=2
       globalcors:
         add-to-simple-url-handler-mapping: true
         cors-configurations:
