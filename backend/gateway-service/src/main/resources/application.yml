@@ -8,7 +8,7 @@ spring:
     gateway:
       routes:
         - id: warehouse-service
-          uri: ${WAREHOUSE_SERVICE_URL:http://warehouse-service:8080}
+          uri: ${WAREHOUSE_SERVICE_URL:http://warehouse-service:8083}
           predicates:
             - Path=/api/**
       globalcors:
