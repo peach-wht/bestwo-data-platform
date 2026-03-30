@@ -8,9 +8,9 @@ spring:
     gateway:
       routes:
         - id: warehouse-service
-          uri: ${WAREHOUSE_SERVICE_URL:http://localhost:8083}
+          uri: ${WAREHOUSE_SERVICE_URL:http://warehouse-service:8080}
           predicates:
-            - Path=/warehouse/**
+            - Path=/api/**
       globalcors:
         add-to-simple-url-handler-mapping: true
         cors-configurations:
