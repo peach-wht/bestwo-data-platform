@@ -1,0 +1,172 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+        skipDefaultCheckout(true)
+    }
+
+    parameters {
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: 'Optional image tag. Leave empty to use short Git commit SHA, then fall back to BUILD_NUMBER.'
+        )
+        string(
+            name: 'IMAGE_REPO',
+            defaultValue: 'wuhaotian-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/bestwo/frontend',
+            description: 'Target ACR image repository without tag.'
+        )
+    }
+
+    environment {
+        SERVICE_NAME = 'frontend-service'
+        NAMESPACE = 'app'
+        DEPLOYMENT_NAME = 'frontend-service'
+        CONTAINER_NAME = 'frontend-service'
+        SERVICE_MANIFEST = 'deploy/k8s/frontend-service-service.yaml'
+        DEPLOYMENT_MANIFEST = 'deploy/k8s/frontend-service-deployment.yaml'
+        FRONTEND_INGRESS_MANIFEST = 'deploy/k8s/frontend-service-ingress.yaml'
+        GATEWAY_INGRESS_MANIFEST = 'deploy/k8s/gateway-service-ingress.yaml'
+        GIT_CREDENTIALS_ID = 'git'
+        REGISTRY_CREDENTIALS_ID = 'acr'
+        NODE_BUILD_IMAGE = 'node:20-alpine'
+    }
+
+    stages {
+        stage('Env Check') {
+            steps {
+                sh """
+                    set -eu
+
+                    command -v git >/dev/null 2>&1
+                    command -v docker >/dev/null 2>&1
+                    command -v kubectl >/dev/null 2>&1
+                """
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                script {
+                    def repoUrl = scm.userRemoteConfigs[0].url
+                    def branchSpecs = scm.branches ?: [[name: env.BRANCH_NAME ? "*/${env.BRANCH_NAME}" : '*/main']]
+
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: branchSpecs,
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [],
+                        userRemoteConfigs: [[
+                            url: repoUrl,
+                            credentialsId: env.GIT_CREDENTIALS_ID
+                        ]]
+                    ])
+
+                    env.CURRENT_BRANCH = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'unknown'
+                    env.GIT_SHORT_SHA = sh(
+                        script: 'git rev-parse --short=8 HEAD',
+                        returnStdout: true
+                    ).trim()
+                    env.RESOLVED_IMAGE_TAG = params.IMAGE_TAG?.trim() ? params.IMAGE_TAG.trim() : (env.GIT_SHORT_SHA ?: env.BUILD_NUMBER)
+                    env.FULL_IMAGE = "${params.IMAGE_REPO}:${env.RESOLVED_IMAGE_TAG}"
+                    env.REGISTRY_HOST = params.IMAGE_REPO.tokenize('/')[0]
+                }
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh """
+                    set -eu
+
+                    docker run --rm \
+                      --user "\$(id -u):\$(id -g)" \
+                      --env HOME=/tmp \
+                      --env npm_config_cache=/tmp/.npm \
+                      --volume "\$WORKSPACE/frontend:/app" \
+                      --workdir /app \
+                      ${NODE_BUILD_IMAGE} \
+                      npm ci
+                """
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                sh """
+                    set -eu
+
+                    docker run --rm \
+                      --user "\$(id -u):\$(id -g)" \
+                      --env HOME=/tmp \
+                      --env npm_config_cache=/tmp/.npm \
+                      --volume "\$WORKSPACE/frontend:/app" \
+                      --workdir /app \
+                      ${NODE_BUILD_IMAGE} \
+                      npm run build
+
+                    test -f frontend/dist/index.html
+                """
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                    set -eu
+
+                    test -f frontend/Dockerfile
+                    test -f frontend/nginx/default.conf
+                    docker build -f frontend/Dockerfile -t ${FULL_IMAGE} frontend
+                """
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: env.REGISTRY_CREDENTIALS_ID,
+                        usernameVariable: 'ACR_USERNAME',
+                        passwordVariable: 'ACR_PASSWORD'
+                    )
+                ]) {
+                    sh """
+                        set -eu
+
+                        echo "\$ACR_PASSWORD" | docker login ${REGISTRY_HOST} --username "\$ACR_USERNAME" --password-stdin
+                        docker push ${FULL_IMAGE}
+                        docker logout ${REGISTRY_HOST} || true
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to K8s') {
+            steps {
+                sh """
+                    set -eu
+
+                    kubectl -n ${NAMESPACE} apply -f ${SERVICE_MANIFEST}
+                    kubectl -n ${NAMESPACE} apply -f ${DEPLOYMENT_MANIFEST}
+                    kubectl -n ${NAMESPACE} apply -f ${GATEWAY_INGRESS_MANIFEST}
+                    kubectl -n ${NAMESPACE} apply -f ${FRONTEND_INGRESS_MANIFEST}
+                    kubectl -n ${NAMESPACE} set image deployment/${DEPLOYMENT_NAME} ${CONTAINER_NAME}=${FULL_IMAGE}
+                    kubectl -n ${NAMESPACE} rollout status deployment/${DEPLOYMENT_NAME} --timeout=180s
+                    kubectl -n ${NAMESPACE} get pods -l app.kubernetes.io/name=${SERVICE_NAME} -o wide
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "frontend-service deployment succeeded: ${env.FULL_IMAGE}"
+        }
+        failure {
+            echo 'frontend-service deployment failed. Check the stage logs above to locate the issue.'
+        }
+    }
+}

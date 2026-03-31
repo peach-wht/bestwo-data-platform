@@ -1,7 +1,9 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+
 const service = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseURL,
   timeout: 10000
 })
 

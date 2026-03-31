@@ -7,12 +7,16 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: warehouse-service
-          uri: ${WAREHOUSE_SERVICE_URL:http://warehouse-service:8083}
+        - id: warehouse-service-api
+          uri: ${WAREHOUSE_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/warehouse/**
           filters:
-            - StripPrefix=2
+            - StripPrefix=1
+        - id: warehouse-service-direct
+          uri: ${WAREHOUSE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/warehouse/**
       globalcors:
         add-to-simple-url-handler-mapping: true
         cors-configurations:
