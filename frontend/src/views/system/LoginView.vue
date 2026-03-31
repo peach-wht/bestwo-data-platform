@@ -54,12 +54,6 @@ const handleLogin = async () => {
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" />
         </el-form-item>
-        <el-alert
-          class="login-tip"
-          type="info"
-          :closable="false"
-          title="初始管理员账号：admin / Bestwo@2026!"
-        />
         <el-button type="primary" class="login-button" :loading="loading" @click="handleLogin">登录</el-button>
       </el-form>
     </el-card>
