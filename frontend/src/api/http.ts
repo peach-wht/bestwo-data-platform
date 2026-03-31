@@ -4,12 +4,20 @@ const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const service = axios.create({
   baseURL: apiBaseURL,
+  withCredentials: true,
   timeout: 10000
 })
 
 service.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error)
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401 && window.location.pathname !== '/login') {
+      const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
+      window.location.href = `/login?redirect=${encodeURIComponent(redirect)}`
+    }
+
+    return Promise.reject(error)
+  }
 )
 
 const http = {

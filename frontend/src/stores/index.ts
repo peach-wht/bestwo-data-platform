@@ -1,5 +1,8 @@
 import { defineStore, createPinia } from 'pinia'
 import { computed, ref } from 'vue'
+import axios from 'axios'
+
+import { fetchCurrentUser, login, logout, type AuthUser } from '@/api/auth'
 
 const pinia = createPinia()
 
@@ -19,31 +22,72 @@ export const useAppStore = defineStore('app', () => {
 })
 
 export const useUserStore = defineStore('user', () => {
-  const token = ref(localStorage.getItem('bestwo_token') || '')
-  const username = ref(localStorage.getItem('bestwo_username') || '管理员')
+  const profile = ref<AuthUser | null>(null)
+  const initialized = ref(false)
+  const loadingProfile = ref(false)
 
-  const isLoggedIn = computed(() => Boolean(token.value))
+  const isLoggedIn = computed(() => Boolean(profile.value))
+  const username = computed(() => profile.value?.username || '')
+  const roles = computed(() => profile.value?.roles || [])
 
-  const setUser = (nextToken: string, nextUsername: string) => {
-    token.value = nextToken
-    username.value = nextUsername
-    localStorage.setItem('bestwo_token', nextToken)
-    localStorage.setItem('bestwo_username', nextUsername)
+  const refreshProfile = async () => {
+    if (loadingProfile.value) {
+      return profile.value
+    }
+
+    loadingProfile.value = true
+    try {
+      const response = await fetchCurrentUser()
+      profile.value = response.data
+      return profile.value
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        profile.value = null
+        return null
+      }
+      throw error
+    } finally {
+      initialized.value = true
+      loadingProfile.value = false
+    }
   }
 
-  const clearUser = () => {
-    token.value = ''
-    username.value = ''
-    localStorage.removeItem('bestwo_token')
-    localStorage.removeItem('bestwo_username')
+  const ensureSession = async () => {
+    if (initialized.value) {
+      return profile.value
+    }
+    return refreshProfile()
+  }
+
+  const loginWithPassword = async (nextUsername: string, nextPassword: string) => {
+    const response = await login({
+      username: nextUsername,
+      password: nextPassword
+    })
+    profile.value = response.data
+    initialized.value = true
+    return response.data
+  }
+
+  const logoutCurrentUser = async () => {
+    try {
+      await logout()
+    } finally {
+      profile.value = null
+      initialized.value = true
+    }
   }
 
   return {
-    token,
+    profile,
     username,
+    roles,
     isLoggedIn,
-    setUser,
-    clearUser
+    initialized,
+    ensureSession,
+    refreshProfile,
+    loginWithPassword,
+    logoutCurrentUser
   }
 })
 

@@ -31,6 +31,18 @@ spec:
               value: prod
             - name: WAREHOUSE_SERVICE_URL
               value: http://warehouse-service:8083
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-service-secret
+                  key: admin-username
+                  optional: true
+            - name: ADMIN_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: gateway-service-secret
+                  key: admin-password-hash
+                  optional: true
           readinessProbe:
             httpGet:
               path: /health

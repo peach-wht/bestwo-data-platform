@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Monitor, Box, Connection, DataLine, Fold, Expand, SwitchButton } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAppStore, useUserStore } from '@/stores'
@@ -9,9 +10,15 @@ const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
 
-const handleLogout = () => {
-  userStore.clearUser()
-  router.push('/login')
+const handleLogout = async () => {
+  try {
+    await userStore.logoutCurrentUser()
+    ElMessage.success('已退出登录')
+  } catch {
+    ElMessage.warning('登录态已清理，请重新登录')
+  } finally {
+    await router.push('/login')
+  }
 }
 </script>
 

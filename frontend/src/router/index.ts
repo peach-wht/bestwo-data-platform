@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import MainLayout from '@/layout/MainLayout.vue'
+import pinia, { useUserStore } from '@/stores'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -13,6 +14,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: MainLayout,
     redirect: '/dashboard',
+    meta: { requiresAuth: true },
     children: [
       {
         path: 'dashboard',
@@ -63,6 +65,35 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach(async (to) => {
+  const userStore = useUserStore(pinia)
+  const requiresAuth = to.matched.some((record) => Boolean(record.meta?.requiresAuth))
+
+  if (to.path === '/login') {
+    await userStore.ensureSession()
+    if (userStore.isLoggedIn) {
+      return { path: '/dashboard' }
+    }
+    return true
+  }
+
+  if (!requiresAuth) {
+    return true
+  }
+
+  await userStore.ensureSession()
+  if (userStore.isLoggedIn) {
+    return true
+  }
+
+  return {
+    path: '/login',
+    query: {
+      redirect: to.fullPath
+    }
+  }
 })
 
 router.afterEach((to) => {
