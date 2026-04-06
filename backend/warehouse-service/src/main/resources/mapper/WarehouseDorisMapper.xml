@@ -504,6 +504,75 @@
         </foreach>
     </insert>
 
+    <insert id="saveQualityRules">
+        INSERT INTO dw_quality_rule (
+            rule_code,
+            rule_name,
+            table_name,
+            rule_level,
+            rule_type,
+            rule_sql,
+            total_sql,
+            threshold_value,
+            enabled,
+            rule_order,
+            description,
+            created_at,
+            updated_at
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.ruleCode},
+                #{item.ruleName},
+                #{item.tableName},
+                #{item.ruleLevel},
+                #{item.ruleType},
+                #{item.ruleSql},
+                #{item.totalSql},
+                #{item.thresholdValue},
+                #{item.enabled},
+                #{item.ruleOrder},
+                #{item.description},
+                #{item.createdAt},
+                #{item.updatedAt}
+            )
+        </foreach>
+    </insert>
+
+    <insert id="saveQualityResult">
+        INSERT INTO dw_quality_result (
+            result_id,
+            rule_code,
+            rule_name,
+            table_name,
+            result_status,
+            result_level,
+            failed_count,
+            total_count,
+            pass_count,
+            threshold_value,
+            message,
+            checked_at,
+            created_at
+        )
+        VALUES (
+            #{result.resultId},
+            #{result.ruleCode},
+            #{result.ruleName},
+            #{result.tableName},
+            #{result.resultStatus},
+            #{result.resultLevel},
+            #{result.failedCount},
+            #{result.totalCount},
+            #{result.passCount},
+            #{result.thresholdValue},
+            #{result.message},
+            #{result.checkedAt},
+            #{result.createdAt}
+        )
+    </insert>
+
     <select id="queryLatestSyncJobLogs" resultType="com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse">
         SELECT
             CAST(log_id AS CHAR) AS logId,
@@ -647,6 +716,22 @@
         LIMIT #{limit}
     </select>
 
+    <select id="queryQualityRules" resultType="com.bestwo.dataplatform.warehouse.dto.QualityRuleResponse">
+        SELECT
+            CAST(rule_code AS CHAR) AS ruleCode,
+            CAST(rule_name AS CHAR) AS ruleName,
+            CAST(table_name AS CHAR) AS tableName,
+            CAST(rule_level AS CHAR) AS ruleLevel,
+            CAST(rule_type AS CHAR) AS ruleType,
+            threshold_value AS thresholdValue,
+            enabled AS enabled,
+            rule_order AS ruleOrder,
+            CAST(description AS CHAR) AS description
+        FROM dw_quality_rule
+        ORDER BY rule_order ASC, rule_code ASC
+        LIMIT #{limit}
+    </select>
+
     <select id="queryQualityResults" resultType="com.bestwo.dataplatform.warehouse.dto.QualityResultResponse">
         SELECT
             ${tableSpec.ruleCodeExpression} AS ruleCode,
@@ -661,6 +746,10 @@
         FROM ${tableSpec.tableName}
         ORDER BY ${tableSpec.checkedAtOrderExpression} DESC
         LIMIT #{limit}
+    </select>
+
+    <select id="queryLongBySql" resultType="java.lang.Long">
+        ${sql}
     </select>
 
     <update id="executeSql">

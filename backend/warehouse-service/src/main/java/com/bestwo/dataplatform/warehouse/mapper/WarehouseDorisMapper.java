@@ -12,12 +12,15 @@ import com.bestwo.dataplatform.warehouse.dto.PayOverviewResponse;
 import com.bestwo.dataplatform.warehouse.dto.PayTrendResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderDetailResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderSummaryDayResponse;
+import com.bestwo.dataplatform.warehouse.dto.QualityRuleResponse;
 import com.bestwo.dataplatform.warehouse.dto.QualityResultResponse;
 import com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse;
 import com.bestwo.dataplatform.warehouse.entity.DwJobLogEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaColumnEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaDatasourceEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaTableEntity;
+import com.bestwo.dataplatform.warehouse.entity.DwQualityResultEntity;
+import com.bestwo.dataplatform.warehouse.entity.DwQualityRuleEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobLogEntity;
 import com.bestwo.dataplatform.warehouse.entity.OdsWxOrderEntity;
@@ -137,6 +140,10 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
 
     int saveMetaColumns(@Param("list") List<DwMetaColumnEntity> list);
 
+    int saveQualityRules(@Param("list") List<DwQualityRuleEntity> list);
+
+    int saveQualityResult(@Param("result") DwQualityResultEntity result);
+
     List<SyncJobLogResponse> queryLatestSyncJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
 
     List<SyncJobLogResponse> queryRecentSyncJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
@@ -155,10 +162,14 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
 
     List<JobExecutionLogResponse> queryDwJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
 
+    List<QualityRuleResponse> queryQualityRules(@Param("limit") Integer limit);
+
     List<QualityResultResponse> queryQualityResults(
         @Param("tableSpec") QualityResultTableSpec tableSpec,
         @Param("limit") Integer limit
     );
+
+    Long queryLongBySql(@Param("sql") String sql);
 
     @Select("SELECT COUNT(1) FROM ${tableName}")
     Long countRows(@Param("tableName") String tableName);

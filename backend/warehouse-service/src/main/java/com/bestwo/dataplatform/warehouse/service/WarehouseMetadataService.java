@@ -41,7 +41,9 @@ public class WarehouseMetadataService {
         "sql/doris/meta/03_create_dw_meta_datasource.sql",
         "sql/doris/meta/04_create_dw_meta_table.sql",
         "sql/doris/meta/05_create_dw_meta_column.sql",
-        "sql/doris/meta/06_create_dw_job_log.sql"
+        "sql/doris/meta/06_create_dw_job_log.sql",
+        "sql/doris/meta/07_create_dw_quality_rule.sql",
+        "sql/doris/meta/08_create_dw_quality_result.sql"
     );
     private static final List<String> TARGET_SCHEMA_RESOURCES = List.of(
         "sql/doris/dwd/01_create_dwd_wx_order_detail.sql",
@@ -165,6 +167,15 @@ public class WarehouseMetadataService {
             "Manual MVP ADS build job from DWD to DWS/ADS",
             now
         ));
+        saveJobIfAbsent(existingJobCodes, buildJobDefinition(
+            "run-quality-check",
+            "Run warehouse quality checks",
+            "DORIS",
+            "ods_wx_order,dwd_wx_order_detail,ods_wx_payment_notify,ads_order_day_summary",
+            "dw_quality_result",
+            "Manual quality check job for MVP warehouse governance",
+            now
+        ));
     }
 
     private int registerTablesAndColumns() {
@@ -186,6 +197,8 @@ public class WarehouseMetadataService {
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_sync_job", "META", "SYSTEM", "Sync job definition table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_sync_job_log", "META", "SYSTEM", "Legacy sync job log table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_job_log", "META", "SYSTEM", "Unified job log table", "warehouse-service", "SYSTEM"),
+            new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_quality_rule", "META", "SYSTEM", "Quality rule definition table", "warehouse-service", "SYSTEM"),
+            new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_quality_result", "META", "SYSTEM", "Quality execution result table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_meta_datasource", "META", "SYSTEM", "Datasource metadata table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_meta_table", "META", "SYSTEM", "Table metadata table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_meta_column", "META", "SYSTEM", "Column metadata table", "warehouse-service", "SYSTEM")

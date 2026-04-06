@@ -144,7 +144,7 @@ Notes:
 - `pay/overview` supports optional `startDate` and `endDate`. If not provided, it reads the latest overall overview.
 - `pay/trend` requires `startDate` and `endDate`.
 - `jobs/logs` supports optional `jobCode` and `limit`.
-- `quality/results` currently returns an empty list when the quality result table has not been created yet. The real quality task will be added in the next stage.
+- `quality/results` now returns the latest quality check results after the quality task has run.
 
 ## Governance Metadata
 
@@ -177,3 +177,33 @@ This stage creates and maintains:
 - `dw_meta_table`
 - `dw_meta_column`
 - `dw_job_log`
+
+## Quality Check Job
+
+The warehouse module now supports minimal quality rule management and manual quality checks.
+
+Quality endpoints:
+
+- `GET /warehouse/quality/rules`
+- `GET /warehouse/quality/results`
+- `POST /warehouse/quality/run`
+- `GET /warehouse/quality/logs`
+
+Task endpoints:
+
+- `POST /dw/jobs/quality/run`
+- `GET /dw/jobs/quality/logs`
+
+Gateway paths:
+
+- `GET /api/warehouse/quality/rules`
+- `GET /api/warehouse/quality/results`
+- `POST /api/dw/jobs/quality/run`
+- `GET /api/dw/jobs/quality/logs`
+
+Default rules currently cover:
+
+- duplicate `order_id` in `ods_wx_order`
+- paid orders without `pay_time` in `dwd_wx_order_detail`
+- successful payment notify records without matching business order
+- negative amount values in `ads_order_day_summary`
