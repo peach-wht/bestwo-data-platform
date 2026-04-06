@@ -20,19 +20,19 @@ const routes: RouteRecordRaw[] = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/dashboard/DashboardView.vue'),
-        meta: { title: 'Dashboard' }
+        meta: { title: '仪表盘' }
       },
       {
         path: 'orders',
         name: 'orders',
         component: () => import('@/views/order/OrderListView.vue'),
-        meta: { title: 'Orders' }
+        meta: { title: '订单中心' }
       },
       {
         path: 'tasks',
         name: 'tasks',
         component: () => import('@/views/task/TaskListView.vue'),
-        meta: { title: 'Tasks' }
+        meta: { title: '任务中心' }
       },
       {
         path: 'warehouse',
@@ -44,13 +44,13 @@ const routes: RouteRecordRaw[] = [
         path: 'warehouse/analysis',
         name: 'WarehouseOrderAnalysis',
         component: () => import('@/views/warehouse/OrderAnalysisView.vue'),
-        meta: { title: 'Order Analysis' }
+        meta: { title: '订单分析' }
       },
       {
         path: 'warehouse/debug',
         name: 'WarehouseDebug',
         component: () => import('@/views/warehouse/WarehouseDebugView.vue'),
-        meta: { title: 'Warehouse Debug' }
+        meta: { title: '联调调试' }
       }
     ]
   },

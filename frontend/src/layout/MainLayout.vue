@@ -39,23 +39,23 @@ const handleLogout = async () => {
       >
         <el-menu-item index="/dashboard">
           <el-icon><Monitor /></el-icon>
-          <span>Dashboard</span>
+          <span>仪表盘</span>
         </el-menu-item>
         <el-menu-item index="/orders">
           <el-icon><Box /></el-icon>
-          <span>Orders</span>
+          <span>订单中心</span>
         </el-menu-item>
         <el-menu-item index="/tasks">
           <el-icon><Connection /></el-icon>
-          <span>Tasks</span>
+          <span>任务中心</span>
         </el-menu-item>
         <el-menu-item index="/warehouse/analysis">
           <el-icon><DataLine /></el-icon>
-          <span>Order Analysis</span>
+          <span>订单分析</span>
         </el-menu-item>
         <el-menu-item index="/warehouse/debug">
           <el-icon><DataLine /></el-icon>
-          <span>Warehouse Debug</span>
+          <span>联调调试</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
