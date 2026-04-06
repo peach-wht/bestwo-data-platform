@@ -99,3 +99,26 @@ If called through the gateway:
 
 - `POST /api/dw/jobs/build-dwd/run`
 - `GET /api/dw/jobs/build-dwd/logs`
+
+## DWS And ADS Build Job
+
+The service now also supports building the aggregated DWS and ADS tables:
+
+- `dws_wx_pay_trade_day`
+- `ads_order_day_summary`
+- `ads_pay_dashboard_overview`
+
+Manual build endpoints:
+
+- `POST /dw/jobs/build-ads/run`
+- `GET /dw/jobs/build-ads/logs`
+
+If called through the gateway:
+
+- `POST /api/dw/jobs/build-ads/run`
+- `GET /api/dw/jobs/build-ads/logs`
+
+After `build-ads` completes, the existing day summary query can directly read:
+
+- `GET /warehouse/summary/day`
+- `GET /api/warehouse/summary/day`
