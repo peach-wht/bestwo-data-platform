@@ -48,4 +48,306 @@
         ORDER BY ${tableSpec.statDateColumn} ASC
     </select>
 
+    <insert id="insertOdsWxOrders">
+        INSERT INTO ods_wx_order (
+            order_id,
+            order_no,
+            external_order_no,
+            biz_type,
+            order_source,
+            order_title,
+            order_description,
+            buyer_id,
+            buyer_nickname,
+            currency,
+            total_amount_fen,
+            payable_amount_fen,
+            paid_amount_fen,
+            refunded_amount_fen,
+            order_status,
+            pay_status,
+            preferred_pay_platform,
+            preferred_trade_type,
+            success_pay_platform,
+            latest_payment_order_no,
+            latest_channel_order_no,
+            paid_time,
+            expired_time,
+            closed_time,
+            cancelled_time,
+            remark,
+            ext_json,
+            version,
+            created_by,
+            updated_by,
+            created_at,
+            updated_at,
+            sync_time
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.orderId},
+                #{item.orderNo},
+                #{item.externalOrderNo},
+                #{item.bizType},
+                #{item.orderSource},
+                #{item.orderTitle},
+                #{item.orderDescription},
+                #{item.buyerId},
+                #{item.buyerNickname},
+                #{item.currency},
+                #{item.totalAmountFen},
+                #{item.payableAmountFen},
+                #{item.paidAmountFen},
+                #{item.refundedAmountFen},
+                #{item.orderStatus},
+                #{item.payStatus},
+                #{item.preferredPayPlatform},
+                #{item.preferredTradeType},
+                #{item.successPayPlatform},
+                #{item.latestPaymentOrderNo},
+                #{item.latestChannelOrderNo},
+                #{item.paidTime},
+                #{item.expiredTime},
+                #{item.closedTime},
+                #{item.cancelledTime},
+                #{item.remark},
+                #{item.extJson},
+                #{item.version},
+                #{item.createdBy},
+                #{item.updatedBy},
+                #{item.createdAt},
+                #{item.updatedAt},
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <insert id="insertOdsWxPaymentOrders">
+        INSERT INTO ods_wx_payment_order (
+            payment_order_id,
+            payment_order_no,
+            order_id,
+            order_no,
+            platform,
+            trade_type,
+            merchant_code,
+            channel_app_id,
+            channel_merchant_id,
+            subject,
+            description,
+            currency,
+            request_amount_fen,
+            success_amount_fen,
+            payer_id,
+            client_ip,
+            notify_url,
+            channel_order_no,
+            channel_prepay_id,
+            code_url,
+            status,
+            fail_code,
+            fail_message,
+            expired_time,
+            success_time,
+            closed_time,
+            last_notify_time,
+            ext_json,
+            version,
+            created_by,
+            updated_by,
+            created_at,
+            updated_at,
+            sync_time
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.paymentOrderId},
+                #{item.paymentOrderNo},
+                #{item.orderId},
+                #{item.orderNo},
+                #{item.platform},
+                #{item.tradeType},
+                #{item.merchantCode},
+                #{item.channelAppId},
+                #{item.channelMerchantId},
+                #{item.subject},
+                #{item.description},
+                #{item.currency},
+                #{item.requestAmountFen},
+                #{item.successAmountFen},
+                #{item.payerId},
+                #{item.clientIp},
+                #{item.notifyUrl},
+                #{item.channelOrderNo},
+                #{item.channelPrepayId},
+                #{item.codeUrl},
+                #{item.status},
+                #{item.failCode},
+                #{item.failMessage},
+                #{item.expiredTime},
+                #{item.successTime},
+                #{item.closedTime},
+                #{item.lastNotifyTime},
+                #{item.extJson},
+                #{item.version},
+                #{item.createdBy},
+                #{item.updatedBy},
+                #{item.createdAt},
+                #{item.updatedAt},
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <insert id="insertOdsWxPaymentNotifyLogs">
+        INSERT INTO ods_wx_payment_notify (
+            notify_log_id,
+            notify_id,
+            platform,
+            notify_type,
+            payment_order_id,
+            payment_order_no,
+            order_id,
+            order_no,
+            channel_order_no,
+            event_type,
+            event_status,
+            summary,
+            request_headers_json,
+            request_body,
+            encrypt_type,
+            resource_ciphertext,
+            resource_nonce,
+            resource_associated_data,
+            signature_serial_no,
+            signature_value,
+            process_status,
+            process_message,
+            processed_at,
+            received_at,
+            ext_json,
+            sync_time
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.notifyLogId},
+                #{item.notifyId},
+                #{item.platform},
+                #{item.notifyType},
+                #{item.paymentOrderId},
+                #{item.paymentOrderNo},
+                #{item.orderId},
+                #{item.orderNo},
+                #{item.channelOrderNo},
+                #{item.eventType},
+                #{item.eventStatus},
+                #{item.summary},
+                #{item.requestHeadersJson},
+                #{item.requestBody},
+                #{item.encryptType},
+                #{item.resourceCiphertext},
+                #{item.resourceNonce},
+                #{item.resourceAssociatedData},
+                #{item.signatureSerialNo},
+                #{item.signatureValue},
+                #{item.processStatus},
+                #{item.processMessage},
+                #{item.processedAt},
+                #{item.receivedAt},
+                #{item.extJson},
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <insert id="saveSyncJob">
+        INSERT INTO dw_sync_job (
+            job_code,
+            job_name,
+            source_type,
+            source_tables,
+            target_tables,
+            enabled,
+            remark,
+            last_run_status,
+            last_run_message,
+            last_run_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{job.jobCode},
+            #{job.jobName},
+            #{job.sourceType},
+            #{job.sourceTables},
+            #{job.targetTables},
+            #{job.enabled},
+            #{job.remark},
+            #{job.lastRunStatus},
+            #{job.lastRunMessage},
+            #{job.lastRunAt},
+            #{job.createdAt},
+            #{job.updatedAt}
+        )
+    </insert>
+
+    <insert id="saveSyncJobLog">
+        INSERT INTO dw_sync_job_log (
+            log_id,
+            job_code,
+            job_name,
+            run_status,
+            message,
+            synced_order_count,
+            synced_payment_order_count,
+            synced_notify_log_count,
+            started_at,
+            finished_at,
+            duration_ms,
+            created_at
+        )
+        VALUES (
+            #{log.logId},
+            #{log.jobCode},
+            #{log.jobName},
+            #{log.runStatus},
+            #{log.message},
+            #{log.syncedOrderCount},
+            #{log.syncedPaymentOrderCount},
+            #{log.syncedNotifyLogCount},
+            #{log.startedAt},
+            #{log.finishedAt},
+            #{log.durationMs},
+            #{log.createdAt}
+        )
+    </insert>
+
+    <select id="queryLatestSyncJobLogs" resultType="com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse">
+        SELECT
+            CAST(log_id AS CHAR) AS logId,
+            CAST(job_code AS CHAR) AS jobCode,
+            CAST(job_name AS CHAR) AS jobName,
+            CAST(run_status AS CHAR) AS runStatus,
+            CAST(message AS CHAR) AS message,
+            synced_order_count AS syncedOrderCount,
+            synced_payment_order_count AS syncedPaymentOrderCount,
+            synced_notify_log_count AS syncedNotifyLogCount,
+            started_at AS startedAt,
+            finished_at AS finishedAt,
+            duration_ms AS durationMs,
+            created_at AS createdAt
+        FROM dw_sync_job_log
+        WHERE job_code = #{jobCode}
+        ORDER BY started_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="executeSql">
+        ${sql}
+    </update>
+
 </mapper>

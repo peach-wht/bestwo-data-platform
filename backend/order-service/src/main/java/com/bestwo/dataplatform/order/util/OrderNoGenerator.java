@@ -23,6 +23,18 @@ public final class OrderNoGenerator {
         return "WX" + LocalDateTime.now(ZONE_ID).format(ORDER_NO_FORMATTER) + nextDigits(6);
     }
 
+    public static String generatePaymentOrderId() {
+        return UUID.randomUUID().toString().replace("-", "");
+    }
+
+    public static String generatePaymentOrderNo() {
+        return "WXP" + LocalDateTime.now(ZONE_ID).format(ORDER_NO_FORMATTER) + nextDigits(6);
+    }
+
+    public static String generateNotifyLogId() {
+        return "NTF" + LocalDateTime.now(ZONE_ID).format(ORDER_NO_FORMATTER) + nextDigits(6);
+    }
+
     private static String nextDigits(int length) {
         StringBuilder builder = new StringBuilder(length);
         for (int i = 0; i < length; i++) {

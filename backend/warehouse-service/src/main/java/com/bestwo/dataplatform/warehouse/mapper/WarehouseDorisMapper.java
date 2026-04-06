@@ -4,9 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.bestwo.dataplatform.warehouse.dto.OrderDetailResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderSummaryDayResponse;
+import com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse;
+import com.bestwo.dataplatform.warehouse.entity.DwSyncJobEntity;
+import com.bestwo.dataplatform.warehouse.entity.DwSyncJobLogEntity;
 import com.bestwo.dataplatform.warehouse.entity.OdsWxOrderEntity;
 import com.bestwo.dataplatform.warehouse.mapper.model.OrderTableSpec;
 import com.bestwo.dataplatform.warehouse.mapper.model.SummaryTableSpec;
+import com.bestwo.dataplatform.warehouse.source.model.BizOrderSourceRow;
+import com.bestwo.dataplatform.warehouse.source.model.BizPaymentNotifyLogSourceRow;
+import com.bestwo.dataplatform.warehouse.source.model.BizPaymentOrderSourceRow;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.List;
@@ -50,6 +56,20 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
         @Param("startDate") LocalDate startDate,
         @Param("endDate") LocalDate endDate
     );
+
+    int insertOdsWxOrders(@Param("list") List<BizOrderSourceRow> list);
+
+    int insertOdsWxPaymentOrders(@Param("list") List<BizPaymentOrderSourceRow> list);
+
+    int insertOdsWxPaymentNotifyLogs(@Param("list") List<BizPaymentNotifyLogSourceRow> list);
+
+    int saveSyncJob(@Param("job") DwSyncJobEntity job);
+
+    int saveSyncJobLog(@Param("log") DwSyncJobLogEntity log);
+
+    List<SyncJobLogResponse> queryLatestSyncJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
+
+    void executeSql(@Param("sql") String sql);
 
     default List<Map<String, Object>> queryTestOrders() {
         return selectMaps(new QueryWrapper<OdsWxOrderEntity>().last("LIMIT 10"));

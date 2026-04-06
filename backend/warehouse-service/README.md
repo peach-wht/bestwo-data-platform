@@ -30,3 +30,56 @@ Typical local debug chain:
 3. Start `gateway-service`.
 4. Start `frontend`.
 5. Access `/warehouse/ping` or `/warehouse/orders/test` through the gateway.
+
+## ODS Schema Init
+
+The warehouse module now keeps the Doris ODS DDL files under:
+
+- `src/main/resources/sql/doris/ods/01_create_ods_wx_order.sql`
+- `src/main/resources/sql/doris/ods/02_create_ods_wx_payment_order.sql`
+- `src/main/resources/sql/doris/ods/03_create_ods_wx_payment_notify.sql`
+
+You can initialize the three ODS tables through the service itself:
+
+```http
+POST /warehouse/schema/ods/init
+```
+
+To inspect whether the tables already exist:
+
+```http
+GET /warehouse/schema/ods
+```
+
+These ODS tables are prepared for the next MVP steps:
+
+- `ods_wx_order`
+- `ods_wx_payment_order`
+- `ods_wx_payment_notify`
+
+## Manual Sync Job
+
+The service now supports a minimal manual sync job from PostgreSQL business tables
+to Doris ODS tables.
+
+Source PostgreSQL defaults:
+
+- `ORDER_DB_HOST=127.0.0.1`
+- `ORDER_DB_PORT=5432`
+- `ORDER_DB_NAME=bestwo_app`
+- `ORDER_DB_USERNAME=bestwo`
+- `ORDER_DB_PASSWORD=Bestwo@123`
+
+In k8s, override:
+
+- `ORDER_DB_HOST=postgres.infra.svc.cluster.local`
+
+Manual sync endpoints:
+
+- `POST /dw/jobs/sync-order/run`
+- `GET /dw/jobs/sync-order/logs`
+
+If called through the gateway:
+
+- `POST /api/dw/jobs/sync-order/run`
+- `GET /api/dw/jobs/sync-order/logs`

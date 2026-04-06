@@ -13,6 +13,24 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: warehouse-service-dw-api
+          uri: ${WAREHOUSE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/dw/**
+          filters:
+            - StripPrefix=1
+        - id: order-service-orders-api
+          uri: ${ORDER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+        - id: order-service-pay-api
+          uri: ${ORDER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/pay/**
+          filters:
+            - StripPrefix=1
         - id: warehouse-service-api
           uri: ${WAREHOUSE_SERVICE_URL:http://localhost:8083}
           predicates:

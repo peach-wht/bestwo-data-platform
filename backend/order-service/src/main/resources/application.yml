@@ -19,3 +19,16 @@ mybatis-plus:
 logging:
   level:
     com.bestwo.dataplatform.order: INFO
+
+bestwo:
+  pay:
+    wechat:
+      enabled: ${WECHAT_PAY_ENABLED:false}
+      base-url: ${WECHAT_PAY_BASE_URL:https://api.mch.weixin.qq.com}
+      app-id: ${WECHAT_PAY_APP_ID:CHANGE_ME}
+      merchant-id: ${WECHAT_PAY_MERCHANT_ID:CHANGE_ME}
+      merchant-serial-no: ${WECHAT_PAY_MERCHANT_SERIAL_NO:CHANGE_ME}
+      private-key-pem: ${WECHAT_PAY_PRIVATE_KEY_PEM:CHANGE_ME}
+      api-v3-key: ${WECHAT_PAY_API_V3_KEY:CHANGE_ME}
+      platform-public-key-pem: ${WECHAT_PAY_PLATFORM_PUBLIC_KEY_PEM:}
+      notify-url: ${WECHAT_PAY_NOTIFY_URL:https://example.com/api/pay/wechat/notify}
