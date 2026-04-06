@@ -48,6 +48,55 @@
         ORDER BY ${tableSpec.statDateColumn} ASC
     </select>
 
+    <select id="queryPayOverviewFromTrend" resultType="com.bestwo.dataplatform.warehouse.dto.PayOverviewResponse">
+        SELECT
+            CAST(MAX(${tableSpec.statDateColumn}) AS CHAR) AS latestStatDate,
+            COALESCE(SUM(${tableSpec.orderCountExpression}), 0) AS orderCount,
+            COALESCE(SUM(${tableSpec.paidOrderCountExpression}), 0) AS paidOrderCount,
+            COALESCE(SUM(${tableSpec.unpaidOrderCountExpression}), 0) AS unpaidOrderCount,
+            COALESCE(SUM(${tableSpec.closedOrderCountExpression}), 0) AS closedOrderCount,
+            COALESCE(SUM(${tableSpec.totalAmountExpression}), 0) AS totalAmount,
+            COALESCE(SUM(${tableSpec.paidAmountExpression}), 0) AS paidAmount,
+            COALESCE(SUM(${tableSpec.refundAmountExpression}), 0) AS refundAmount,
+            CASE
+                WHEN COALESCE(SUM(${tableSpec.orderCountExpression}), 0) = 0 THEN 0
+                ELSE ROUND(
+                    CAST(COALESCE(SUM(${tableSpec.paidOrderCountExpression}), 0) AS DECIMAL(18, 4))
+                    / COALESCE(SUM(${tableSpec.orderCountExpression}), 0),
+                    4
+                )
+            END AS paySuccessRate
+        FROM ${tableSpec.tableName}
+        <where>
+            <if test="startDate != null">
+                ${tableSpec.statDateColumn} <![CDATA[>=]]> #{startDate}
+            </if>
+            <if test="endDate != null">
+                <if test="startDate != null">
+                    AND
+                </if>
+                ${tableSpec.statDateColumn} <![CDATA[<=]]> #{endDate}
+            </if>
+        </where>
+    </select>
+
+    <select id="queryPayTrend" resultType="com.bestwo.dataplatform.warehouse.dto.PayTrendResponse">
+        SELECT
+            CAST(${tableSpec.statDateColumn} AS CHAR) AS statDate,
+            ${tableSpec.orderCountExpression} AS orderCount,
+            ${tableSpec.paidOrderCountExpression} AS paidOrderCount,
+            ${tableSpec.unpaidOrderCountExpression} AS unpaidOrderCount,
+            ${tableSpec.closedOrderCountExpression} AS closedOrderCount,
+            ${tableSpec.totalAmountExpression} AS totalAmount,
+            ${tableSpec.paidAmountExpression} AS paidAmount,
+            ${tableSpec.refundAmountExpression} AS refundAmount,
+            ${tableSpec.paySuccessRateExpression} AS paySuccessRate
+        FROM ${tableSpec.tableName}
+        WHERE ${tableSpec.statDateColumn} <![CDATA[>=]]> #{startDate}
+          AND ${tableSpec.statDateColumn} <![CDATA[<=]]> #{endDate}
+        ORDER BY ${tableSpec.statDateColumn} ASC
+    </select>
+
     <insert id="insertOdsWxOrders">
         INSERT INTO ods_wx_order (
             order_id,
@@ -343,6 +392,44 @@
         FROM dw_sync_job_log
         WHERE job_code = #{jobCode}
         ORDER BY started_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryRecentSyncJobLogs" resultType="com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse">
+        SELECT
+            CAST(log_id AS CHAR) AS logId,
+            CAST(job_code AS CHAR) AS jobCode,
+            CAST(job_name AS CHAR) AS jobName,
+            CAST(run_status AS CHAR) AS runStatus,
+            CAST(message AS CHAR) AS message,
+            synced_order_count AS syncedOrderCount,
+            synced_payment_order_count AS syncedPaymentOrderCount,
+            synced_notify_log_count AS syncedNotifyLogCount,
+            started_at AS startedAt,
+            finished_at AS finishedAt,
+            duration_ms AS durationMs,
+            created_at AS createdAt
+        FROM dw_sync_job_log
+        <if test="jobCode != null and jobCode != ''">
+            WHERE job_code = #{jobCode}
+        </if>
+        ORDER BY started_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryQualityResults" resultType="com.bestwo.dataplatform.warehouse.dto.QualityResultResponse">
+        SELECT
+            ${tableSpec.ruleCodeExpression} AS ruleCode,
+            ${tableSpec.ruleNameExpression} AS ruleName,
+            ${tableSpec.tableNameExpression} AS tableName,
+            ${tableSpec.resultStatusExpression} AS resultStatus,
+            ${tableSpec.resultLevelExpression} AS resultLevel,
+            ${tableSpec.failedCountExpression} AS failedCount,
+            ${tableSpec.totalCountExpression} AS totalCount,
+            ${tableSpec.messageExpression} AS message,
+            ${tableSpec.checkedAtExpression} AS checkedAt
+        FROM ${tableSpec.tableName}
+        ORDER BY ${tableSpec.checkedAtOrderExpression} DESC
         LIMIT #{limit}
     </select>
 

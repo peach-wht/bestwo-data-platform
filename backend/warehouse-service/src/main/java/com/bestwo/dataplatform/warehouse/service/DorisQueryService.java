@@ -5,12 +5,21 @@ import com.bestwo.dataplatform.warehouse.config.DorisProperties;
 import com.bestwo.dataplatform.warehouse.dto.OrderDetailResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderQueryRequest;
 import com.bestwo.dataplatform.warehouse.dto.OrderSummaryDayResponse;
+import com.bestwo.dataplatform.warehouse.dto.PayOverviewQueryRequest;
+import com.bestwo.dataplatform.warehouse.dto.PayOverviewResponse;
+import com.bestwo.dataplatform.warehouse.dto.PayTrendResponse;
+import com.bestwo.dataplatform.warehouse.dto.QualityResultResponse;
 import com.bestwo.dataplatform.warehouse.dto.SummaryQueryRequest;
+import com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse;
 import com.bestwo.dataplatform.warehouse.mapper.WarehouseDorisMapper;
 import com.bestwo.dataplatform.warehouse.mapper.model.OrderTableSpec;
+import com.bestwo.dataplatform.warehouse.mapper.model.PayTrendTableSpec;
+import com.bestwo.dataplatform.warehouse.mapper.model.QualityResultTableSpec;
 import com.bestwo.dataplatform.warehouse.mapper.model.SummaryTableSpec;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -74,6 +83,42 @@ public class DorisQueryService {
         return warehouseDorisMapper.queryDaySummary(tableSpec, request.getStartDate(), request.getEndDate());
     }
 
+    public PayOverviewResponse queryPayOverview(PayOverviewQueryRequest request) {
+        if (!request.hasDateRange() && tableExists("ads_pay_dashboard_overview")) {
+            PayOverviewResponse response = warehouseDorisMapper.queryAdsPayOverview("ALL");
+            if (response != null) {
+                return normalizePayOverview(response);
+            }
+        }
+
+        PayTrendTableSpec tableSpec = resolvePayTrendTableSpec();
+        PayOverviewResponse response = warehouseDorisMapper.queryPayOverviewFromTrend(
+            tableSpec,
+            request.getStartDate(),
+            request.getEndDate()
+        );
+        return normalizePayOverview(response);
+    }
+
+    public List<PayTrendResponse> queryPayTrend(SummaryQueryRequest request) {
+        PayTrendTableSpec tableSpec = resolvePayTrendTableSpec();
+        return warehouseDorisMapper.queryPayTrend(tableSpec, request.getStartDate(), request.getEndDate());
+    }
+
+    public List<SyncJobLogResponse> queryRecentJobLogs(String jobCode, int limit) {
+        if (!tableExists("dw_sync_job_log")) {
+            return Collections.emptyList();
+        }
+        return warehouseDorisMapper.queryRecentSyncJobLogs(jobCode, limit);
+    }
+
+    public List<QualityResultResponse> queryQualityResults(int limit) {
+        if (!tableExists("dw_quality_result")) {
+            return Collections.emptyList();
+        }
+        return warehouseDorisMapper.queryQualityResults(resolveQualityResultTableSpec(), limit);
+    }
+
     private OrderTableSpec resolveOrderTableSpec() {
         OrderTableSpec dwdTableSpec = buildOrderTableSpec("dwd_wx_order_detail");
         if (dwdTableSpec != null) {
@@ -109,6 +154,80 @@ public class DorisQueryService {
             numericSelect(columns, List.of("total_amount", "order_amount", "total_order_amount"), "totalAmount", false),
             numericSelect(columns, List.of("paid_amount", "total_paid_amount"), "paidAmount", false),
             numericSelect(columns, List.of("refund_amount", "total_refund_amount"), "refundAmount", false)
+        );
+    }
+
+    private PayTrendTableSpec resolvePayTrendTableSpec() {
+        Set<String> dwsColumns = getTableColumns("dws_wx_pay_trade_day");
+        if (!dwsColumns.isEmpty()) {
+            String statDateColumn = resolveRequiredColumn(dwsColumns, List.of("stat_date", "dt"), "stat_date");
+            String orderCountExpression = numericExpression(dwsColumns, List.of("order_count"), true);
+            String paidOrderCountExpression = numericExpression(dwsColumns, List.of("paid_order_count"), false);
+            return new PayTrendTableSpec(
+                "dws_wx_pay_trade_day",
+                statDateColumn,
+                orderCountExpression,
+                paidOrderCountExpression,
+                numericExpression(dwsColumns, List.of("unpaid_order_count"), false),
+                numericExpression(dwsColumns, List.of("closed_order_count"), false),
+                numericExpression(dwsColumns, List.of("total_amount"), false),
+                numericExpression(dwsColumns, List.of("paid_amount"), false),
+                numericExpression(dwsColumns, List.of("refund_amount"), false),
+                numericExpression(
+                    dwsColumns,
+                    List.of("pay_success_rate"),
+                    false,
+                    buildRatioExpression(paidOrderCountExpression, orderCountExpression)
+                )
+            );
+        }
+
+        log.warn("dws_wx_pay_trade_day not found, fallback to ads_order_day_summary");
+        Set<String> adsColumns = getTableColumns("ads_order_day_summary");
+        if (adsColumns.isEmpty()) {
+            throw new BusinessException("no available pay trend table found in Doris");
+        }
+
+        String statDateColumn = resolveRequiredColumn(adsColumns, List.of("stat_date", "order_date", "dt"), "stat_date");
+        String orderCountExpression = numericExpression(adsColumns, List.of("order_count", "total_order_count"), true);
+        String paidOrderCountExpression = numericExpression(adsColumns, List.of("paid_order_count", "success_order_count"), false);
+        return new PayTrendTableSpec(
+            "ads_order_day_summary",
+            statDateColumn,
+            orderCountExpression,
+            paidOrderCountExpression,
+            "0",
+            "0",
+            numericExpression(adsColumns, List.of("total_amount", "order_amount", "total_order_amount"), false),
+            numericExpression(adsColumns, List.of("paid_amount", "total_paid_amount"), false),
+            numericExpression(adsColumns, List.of("refund_amount", "total_refund_amount"), false),
+            buildRatioExpression(paidOrderCountExpression, orderCountExpression)
+        );
+    }
+
+    private QualityResultTableSpec resolveQualityResultTableSpec() {
+        Set<String> columns = getTableColumns("dw_quality_result");
+        if (columns.isEmpty()) {
+            throw new BusinessException("dw_quality_result table not found in Doris");
+        }
+
+        String checkedAtOrderExpression = resolveOptionalColumn(
+            columns,
+            List.of("checked_at", "check_time", "finished_at", "created_at")
+        );
+
+        return new QualityResultTableSpec(
+            "dw_quality_result",
+            stringExpression(columns, List.of("rule_code", "quality_rule_code"), false),
+            stringExpression(columns, List.of("rule_name", "quality_rule_name"), false),
+            stringExpression(columns, List.of("table_name", "target_table", "source_table"), false),
+            stringExpression(columns, List.of("result_status", "check_status", "run_status"), false),
+            stringExpression(columns, List.of("result_level", "severity", "alert_level"), false),
+            numericExpression(columns, List.of("failed_count", "failed_rows", "error_count"), false),
+            numericExpression(columns, List.of("total_count", "total_rows", "checked_rows"), false),
+            stringExpression(columns, List.of("message", "result_message", "remark"), false),
+            stringExpression(columns, List.of("checked_at", "check_time", "finished_at", "created_at"), false),
+            checkedAtOrderExpression == null ? "1" : checkedAtOrderExpression
         );
     }
 
@@ -179,6 +298,17 @@ public class DorisQueryService {
         return "CAST(" + column + " AS CHAR) AS " + alias;
     }
 
+    private String stringExpression(Set<String> columns, List<String> candidates, boolean required) {
+        String column = resolveOptionalColumn(columns, candidates);
+        if (column == null) {
+            if (required) {
+                throw new BusinessException("required field not found in Doris table");
+            }
+            return "NULL";
+        }
+        return "CAST(" + column + " AS CHAR)";
+    }
+
     private String numericSelect(Set<String> columns, List<String> candidates, String alias, boolean required) {
         String column = resolveOptionalColumn(columns, candidates);
         if (column == null) {
@@ -188,6 +318,30 @@ public class DorisQueryService {
             return "0 AS " + alias;
         }
         return column + " AS " + alias;
+    }
+
+    private String numericExpression(Set<String> columns, List<String> candidates, boolean required) {
+        return numericExpression(columns, candidates, required, "0");
+    }
+
+    private String numericExpression(Set<String> columns, List<String> candidates, boolean required, String defaultExpression) {
+        String column = resolveOptionalColumn(columns, candidates);
+        if (column == null) {
+            if (required) {
+                throw new BusinessException("required numeric field not found in Doris table");
+            }
+            return defaultExpression;
+        }
+        return column;
+    }
+
+    private String buildRatioExpression(String numeratorExpression, String denominatorExpression) {
+        return "CASE WHEN " + denominatorExpression
+            + " = 0 THEN 0 ELSE ROUND(CAST("
+            + numeratorExpression
+            + " AS DECIMAL(18, 4)) / "
+            + denominatorExpression
+            + ", 4) END";
     }
 
     private String resolveOptionalColumn(Set<String> columns, List<String> candidates) {
@@ -213,5 +367,38 @@ public class DorisQueryService {
 
     private Timestamp toEndTimestamp(LocalDate endDate) {
         return Timestamp.valueOf(endDate.plusDays(1).atStartOfDay());
+    }
+
+    private boolean tableExists(String tableName) {
+        return !getTableColumns(tableName).isEmpty();
+    }
+
+    private PayOverviewResponse normalizePayOverview(PayOverviewResponse response) {
+        PayOverviewResponse normalized = response == null ? new PayOverviewResponse() : response;
+        if (normalized.getOrderCount() == null) {
+            normalized.setOrderCount(0L);
+        }
+        if (normalized.getPaidOrderCount() == null) {
+            normalized.setPaidOrderCount(0L);
+        }
+        if (normalized.getUnpaidOrderCount() == null) {
+            normalized.setUnpaidOrderCount(0L);
+        }
+        if (normalized.getClosedOrderCount() == null) {
+            normalized.setClosedOrderCount(0L);
+        }
+        if (normalized.getTotalAmount() == null) {
+            normalized.setTotalAmount(BigDecimal.ZERO);
+        }
+        if (normalized.getPaidAmount() == null) {
+            normalized.setPaidAmount(BigDecimal.ZERO);
+        }
+        if (normalized.getRefundAmount() == null) {
+            normalized.setRefundAmount(BigDecimal.ZERO);
+        }
+        if (normalized.getPaySuccessRate() == null) {
+            normalized.setPaySuccessRate(BigDecimal.ZERO);
+        }
+        return normalized;
     }
 }

@@ -122,3 +122,26 @@ After `build-ads` completes, the existing day summary query can directly read:
 
 - `GET /warehouse/summary/day`
 - `GET /api/warehouse/summary/day`
+
+## Warehouse Query APIs
+
+The warehouse module now exposes minimal read APIs for dashboard and analysis pages:
+
+- `GET /warehouse/pay/overview`
+- `GET /warehouse/pay/trend`
+- `GET /warehouse/jobs/logs`
+- `GET /warehouse/quality/results`
+
+Gateway paths:
+
+- `GET /api/warehouse/pay/overview`
+- `GET /api/warehouse/pay/trend`
+- `GET /api/warehouse/jobs/logs`
+- `GET /api/warehouse/quality/results`
+
+Notes:
+
+- `pay/overview` supports optional `startDate` and `endDate`. If not provided, it reads the latest overall overview.
+- `pay/trend` requires `startDate` and `endDate`.
+- `jobs/logs` supports optional `jobCode` and `limit`.
+- `quality/results` currently returns an empty list when the quality result table has not been created yet. The real quality task will be added in the next stage.
