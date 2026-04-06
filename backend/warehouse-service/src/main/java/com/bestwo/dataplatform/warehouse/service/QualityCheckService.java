@@ -5,6 +5,7 @@ import com.bestwo.dataplatform.warehouse.dto.JobDefinitionResponse;
 import com.bestwo.dataplatform.warehouse.dto.JobExecutionLogResponse;
 import com.bestwo.dataplatform.warehouse.dto.QualityRuleResponse;
 import com.bestwo.dataplatform.warehouse.dto.QualityRunResponse;
+import com.bestwo.dataplatform.warehouse.entity.DwAlertRecordEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwJobLogEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwQualityResultEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwQualityRuleEntity;
@@ -31,7 +32,9 @@ public class QualityCheckService {
         "sql/doris/meta/05_create_dw_meta_column.sql",
         "sql/doris/meta/06_create_dw_job_log.sql",
         "sql/doris/meta/07_create_dw_quality_rule.sql",
-        "sql/doris/meta/08_create_dw_quality_result.sql"
+        "sql/doris/meta/08_create_dw_quality_result.sql",
+        "sql/doris/meta/09_create_dw_lineage_relation.sql",
+        "sql/doris/meta/10_create_dw_alert_record.sql"
     );
 
     private final WarehouseDorisMapper warehouseDorisMapper;
@@ -68,6 +71,7 @@ public class QualityCheckService {
                 checkedRuleCount++;
                 RuleExecutionOutcome outcome = executeRule(rule, index, startedAt);
                 warehouseDorisMapper.saveQualityResult(outcome.result());
+                saveAlertIfNecessary(outcome.result());
                 if ("PASSED".equals(outcome.result().getResultStatus())) {
                     passedRuleCount++;
                 } else {
@@ -94,6 +98,10 @@ public class QualityCheckService {
             finishedAt,
             durationMs
         ));
+
+        if (!"SUCCESS".equals(runStatus)) {
+            warehouseDorisMapper.saveAlertRecord(buildJobFailureAlert(logId, message, finishedAt));
+        }
 
         if (!"SUCCESS".equals(runStatus)) {
             throw new BusinessException(message);
@@ -160,6 +168,13 @@ public class QualityCheckService {
         for (String resourcePath : META_SCHEMA_RESOURCES) {
             executeSqlResource(resourcePath);
         }
+    }
+
+    private void saveAlertIfNecessary(DwQualityResultEntity result) {
+        if ("PASSED".equals(result.getResultStatus())) {
+            return;
+        }
+        warehouseDorisMapper.saveAlertRecord(buildQualityAlert(result));
     }
 
     private void ensureDefaultRules() {
@@ -302,6 +317,44 @@ public class QualityCheckService {
         return log;
     }
 
+    private DwAlertRecordEntity buildQualityAlert(DwQualityResultEntity result) {
+        DwAlertRecordEntity alert = new DwAlertRecordEntity();
+        alert.setAlertId("ALERT-" + result.getResultId());
+        alert.setAlertType("QUALITY_CHECK");
+        alert.setAlertLevel(defaultIfBlank(result.getResultLevel(), "MEDIUM"));
+        alert.setAlertSource("dw_quality_result");
+        alert.setSourceCode(result.getRuleCode());
+        alert.setSourceName(result.getRuleName());
+        alert.setAlertStatus("OPEN");
+        alert.setAlertTitle(truncate("Quality rule failed: " + result.getRuleName(), 128));
+        alert.setAlertMessage(truncate(
+            "table=" + result.getTableName() + ", status=" + result.getResultStatus() + ", " + result.getMessage(),
+            255
+        ));
+        alert.setFiredAt(result.getCheckedAt());
+        alert.setResolvedAt(null);
+        alert.setCreatedAt(result.getCreatedAt());
+        return alert;
+    }
+
+    private DwAlertRecordEntity buildJobFailureAlert(String logId, String message, Instant finishedAt) {
+        Timestamp finishedAtTs = Timestamp.from(finishedAt);
+        DwAlertRecordEntity alert = new DwAlertRecordEntity();
+        alert.setAlertId("ALERT-JOB-" + logId);
+        alert.setAlertType("JOB_FAILURE");
+        alert.setAlertLevel("HIGH");
+        alert.setAlertSource("dw_job_log");
+        alert.setSourceCode(JOB_CODE);
+        alert.setSourceName(JOB_NAME);
+        alert.setAlertStatus("OPEN");
+        alert.setAlertTitle("Warehouse quality job failed");
+        alert.setAlertMessage(truncate(message, 255));
+        alert.setFiredAt(finishedAtTs);
+        alert.setResolvedAt(null);
+        alert.setCreatedAt(finishedAtTs);
+        return alert;
+    }
+
     private String resolveRuleSql(String ruleCode) {
         return switch (ruleCode) {
             case "Q001" -> """
@@ -399,6 +452,13 @@ public class QualityCheckService {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private String defaultIfBlank(String value, String defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        return value;
     }
 
     private record RuleExecutionOutcome(DwQualityResultEntity result) {

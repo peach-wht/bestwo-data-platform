@@ -5,11 +5,13 @@ import com.bestwo.dataplatform.warehouse.config.DorisProperties;
 import com.bestwo.dataplatform.warehouse.config.SourcePostgresProperties;
 import com.bestwo.dataplatform.warehouse.dto.JobDefinitionResponse;
 import com.bestwo.dataplatform.warehouse.dto.JobExecutionLogResponse;
+import com.bestwo.dataplatform.warehouse.dto.LineageRelationResponse;
 import com.bestwo.dataplatform.warehouse.dto.MetadataColumnResponse;
 import com.bestwo.dataplatform.warehouse.dto.MetadataDatasourceResponse;
 import com.bestwo.dataplatform.warehouse.dto.MetadataInitResponse;
 import com.bestwo.dataplatform.warehouse.dto.MetadataTableColumnSnapshot;
 import com.bestwo.dataplatform.warehouse.dto.MetadataTableResponse;
+import com.bestwo.dataplatform.warehouse.entity.DwLineageRelationEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaColumnEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaDatasourceEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaTableEntity;
@@ -43,7 +45,9 @@ public class WarehouseMetadataService {
         "sql/doris/meta/05_create_dw_meta_column.sql",
         "sql/doris/meta/06_create_dw_job_log.sql",
         "sql/doris/meta/07_create_dw_quality_rule.sql",
-        "sql/doris/meta/08_create_dw_quality_result.sql"
+        "sql/doris/meta/08_create_dw_quality_result.sql",
+        "sql/doris/meta/09_create_dw_lineage_relation.sql",
+        "sql/doris/meta/10_create_dw_alert_record.sql"
     );
     private static final List<String> TARGET_SCHEMA_RESOURCES = List.of(
         "sql/doris/dwd/01_create_dwd_wx_order_detail.sql",
@@ -87,6 +91,7 @@ public class WarehouseMetadataService {
 
         registerDatasources();
         registerKnownJobs();
+        registerLineageRelations();
 
         int tableCount = registerTablesAndColumns();
 
@@ -120,11 +125,16 @@ public class WarehouseMetadataService {
     }
 
     public List<JobExecutionLogResponse> queryJobLogs(String jobCode, int limit) {
-        ensureGovernanceTables();
+        ensureGovernanceArtifacts();
         if (warehouseDorisMapper.listTableColumns(dorisProperties.getDatabase(), "dw_job_log").isEmpty()) {
             return List.of();
         }
         return warehouseDorisMapper.queryDwJobLogs(jobCode, limit);
+    }
+
+    public void ensureGovernanceArtifacts() {
+        ensureGovernanceTables();
+        registerLineageRelations();
     }
 
     private void registerDatasources() {
@@ -199,6 +209,8 @@ public class WarehouseMetadataService {
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_job_log", "META", "SYSTEM", "Unified job log table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_quality_rule", "META", "SYSTEM", "Quality rule definition table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_quality_result", "META", "SYSTEM", "Quality execution result table", "warehouse-service", "SYSTEM"),
+            new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_lineage_relation", "META", "SYSTEM", "Table level lineage relation table", "warehouse-service", "SYSTEM"),
+            new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_alert_record", "META", "SYSTEM", "Warehouse governance alert record table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_meta_datasource", "META", "SYSTEM", "Datasource metadata table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_meta_table", "META", "SYSTEM", "Table metadata table", "warehouse-service", "SYSTEM"),
             new TableRegistrationSpec(TARGET_DATASOURCE_CODE, "dw_meta_column", "META", "SYSTEM", "Column metadata table", "warehouse-service", "SYSTEM")
@@ -297,6 +309,26 @@ public class WarehouseMetadataService {
         warehouseDorisMapper.saveSyncJob(job);
     }
 
+    private void registerLineageRelations() {
+        List<LineageRelationResponse> existingRelations = warehouseDorisMapper.queryLineageRelations(null, 1);
+        if (!existingRelations.isEmpty()) {
+            return;
+        }
+
+        Timestamp now = Timestamp.from(Instant.now());
+        warehouseDorisMapper.saveLineageRelations(List.of(
+            buildLineageRelation("LN001", SOURCE_DATASOURCE_CODE, "biz_order", TARGET_DATASOURCE_CODE, "ods_wx_order", "sync-order-to-ods", now),
+            buildLineageRelation("LN002", SOURCE_DATASOURCE_CODE, "biz_payment_order", TARGET_DATASOURCE_CODE, "ods_wx_payment_order", "sync-order-to-ods", now),
+            buildLineageRelation("LN003", SOURCE_DATASOURCE_CODE, "biz_payment_notify_log", TARGET_DATASOURCE_CODE, "ods_wx_payment_notify", "sync-order-to-ods", now),
+            buildLineageRelation("LN004", TARGET_DATASOURCE_CODE, "ods_wx_order", TARGET_DATASOURCE_CODE, "dwd_wx_order_detail", "build-dwd-order-detail", now),
+            buildLineageRelation("LN005", TARGET_DATASOURCE_CODE, "ods_wx_payment_order", TARGET_DATASOURCE_CODE, "dwd_wx_order_detail", "build-dwd-order-detail", now),
+            buildLineageRelation("LN006", TARGET_DATASOURCE_CODE, "ods_wx_payment_notify", TARGET_DATASOURCE_CODE, "dwd_wx_order_detail", "build-dwd-order-detail", now),
+            buildLineageRelation("LN007", TARGET_DATASOURCE_CODE, "dwd_wx_order_detail", TARGET_DATASOURCE_CODE, "dws_wx_pay_trade_day", "build-ads-order-metrics", now),
+            buildLineageRelation("LN008", TARGET_DATASOURCE_CODE, "dws_wx_pay_trade_day", TARGET_DATASOURCE_CODE, "ads_order_day_summary", "build-ads-order-metrics", now),
+            buildLineageRelation("LN009", TARGET_DATASOURCE_CODE, "dws_wx_pay_trade_day", TARGET_DATASOURCE_CODE, "ads_pay_dashboard_overview", "build-ads-order-metrics", now)
+        ));
+    }
+
     private DwMetaTableEntity buildMetaTable(TableRegistrationSpec spec, int columnCount, Timestamp now) {
         DwMetaTableEntity entity = new DwMetaTableEntity();
         entity.setTableCode(spec.tableName());
@@ -332,6 +364,29 @@ public class WarehouseMetadataService {
             entities.add(entity);
         }
         return entities;
+    }
+
+    private DwLineageRelationEntity buildLineageRelation(
+        String relationId,
+        String upstreamDatasourceCode,
+        String upstreamTableCode,
+        String downstreamDatasourceCode,
+        String downstreamTableCode,
+        String transformName,
+        Timestamp now
+    ) {
+        DwLineageRelationEntity entity = new DwLineageRelationEntity();
+        entity.setRelationId(relationId);
+        entity.setRelationType("TABLE_TO_TABLE");
+        entity.setUpstreamDatasourceCode(upstreamDatasourceCode);
+        entity.setUpstreamTableCode(upstreamTableCode);
+        entity.setDownstreamDatasourceCode(downstreamDatasourceCode);
+        entity.setDownstreamTableCode(downstreamTableCode);
+        entity.setTransformName(transformName);
+        entity.setEnabled(1);
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
+        return entity;
     }
 
     private void ensureGovernanceTables() {

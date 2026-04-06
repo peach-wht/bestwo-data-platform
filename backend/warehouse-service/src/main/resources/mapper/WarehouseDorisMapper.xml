@@ -504,6 +504,67 @@
         </foreach>
     </insert>
 
+    <insert id="saveLineageRelations">
+        INSERT INTO dw_lineage_relation (
+            relation_id,
+            relation_type,
+            upstream_datasource_code,
+            upstream_table_code,
+            downstream_datasource_code,
+            downstream_table_code,
+            transform_name,
+            enabled,
+            created_at,
+            updated_at
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.relationId},
+                #{item.relationType},
+                #{item.upstreamDatasourceCode},
+                #{item.upstreamTableCode},
+                #{item.downstreamDatasourceCode},
+                #{item.downstreamTableCode},
+                #{item.transformName},
+                #{item.enabled},
+                #{item.createdAt},
+                #{item.updatedAt}
+            )
+        </foreach>
+    </insert>
+
+    <insert id="saveAlertRecord">
+        INSERT INTO dw_alert_record (
+            alert_id,
+            alert_type,
+            alert_level,
+            alert_source,
+            source_code,
+            source_name,
+            alert_status,
+            alert_title,
+            alert_message,
+            fired_at,
+            resolved_at,
+            created_at
+        )
+        VALUES (
+            #{alert.alertId},
+            #{alert.alertType},
+            #{alert.alertLevel},
+            #{alert.alertSource},
+            #{alert.sourceCode},
+            #{alert.sourceName},
+            #{alert.alertStatus},
+            #{alert.alertTitle},
+            #{alert.alertMessage},
+            #{alert.firedAt},
+            #{alert.resolvedAt},
+            #{alert.createdAt}
+        )
+    </insert>
+
     <insert id="saveQualityRules">
         INSERT INTO dw_quality_rule (
             rule_code,
@@ -668,6 +729,48 @@
         FROM dw_meta_column
         WHERE table_code = #{tableCode}
         ORDER BY column_order ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryLineageRelations" resultType="com.bestwo.dataplatform.warehouse.dto.LineageRelationResponse">
+        SELECT
+            CAST(relation_id AS CHAR) AS relationId,
+            CAST(relation_type AS CHAR) AS relationType,
+            CAST(upstream_datasource_code AS CHAR) AS upstreamDatasourceCode,
+            CAST(upstream_table_code AS CHAR) AS upstreamTableCode,
+            CAST(downstream_datasource_code AS CHAR) AS downstreamDatasourceCode,
+            CAST(downstream_table_code AS CHAR) AS downstreamTableCode,
+            CAST(transform_name AS CHAR) AS transformName,
+            enabled AS enabled
+        FROM dw_lineage_relation
+        <where>
+            <if test="tableCode != null and tableCode != ''">
+                upstream_table_code = #{tableCode}
+                OR downstream_table_code = #{tableCode}
+            </if>
+        </where>
+        ORDER BY upstream_table_code ASC, downstream_table_code ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryAlertRecords" resultType="com.bestwo.dataplatform.warehouse.dto.AlertRecordResponse">
+        SELECT
+            CAST(alert_id AS CHAR) AS alertId,
+            CAST(alert_type AS CHAR) AS alertType,
+            CAST(alert_level AS CHAR) AS alertLevel,
+            CAST(alert_source AS CHAR) AS alertSource,
+            CAST(source_code AS CHAR) AS sourceCode,
+            CAST(source_name AS CHAR) AS sourceName,
+            CAST(alert_status AS CHAR) AS alertStatus,
+            CAST(alert_title AS CHAR) AS alertTitle,
+            CAST(alert_message AS CHAR) AS alertMessage,
+            CAST(fired_at AS CHAR) AS firedAt,
+            CAST(resolved_at AS CHAR) AS resolvedAt
+        FROM dw_alert_record
+        <if test="alertStatus != null and alertStatus != ''">
+            WHERE alert_status = #{alertStatus}
+        </if>
+        ORDER BY fired_at DESC, created_at DESC
         LIMIT #{limit}
     </select>
 

@@ -177,6 +177,8 @@ This stage creates and maintains:
 - `dw_meta_table`
 - `dw_meta_column`
 - `dw_job_log`
+- `dw_lineage_relation`
+- `dw_alert_record`
 
 ## Quality Check Job
 
@@ -207,3 +209,26 @@ Default rules currently cover:
 - paid orders without `pay_time` in `dwd_wx_order_detail`
 - successful payment notify records without matching business order
 - negative amount values in `ads_order_day_summary`
+
+When a quality rule fails, the service now also writes an alert record into:
+
+- `dw_alert_record`
+
+## Lineage And Alerts
+
+The warehouse module now supports minimal table-level lineage and governance alert queries.
+
+Query endpoints:
+
+- `GET /warehouse/lineage`
+- `GET /warehouse/alerts`
+
+Gateway paths:
+
+- `GET /api/warehouse/lineage`
+- `GET /api/warehouse/alerts`
+
+Notes:
+
+- `lineage` supports optional `tableCode`, and returns upstream/downstream table relations.
+- `alerts` supports optional `alertStatus`, and currently focuses on quality rule failures and job failures.

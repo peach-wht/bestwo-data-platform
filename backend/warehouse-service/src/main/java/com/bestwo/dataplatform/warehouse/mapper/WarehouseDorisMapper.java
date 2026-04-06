@@ -8,6 +8,8 @@ import com.bestwo.dataplatform.warehouse.dto.MetadataColumnResponse;
 import com.bestwo.dataplatform.warehouse.dto.MetadataDatasourceResponse;
 import com.bestwo.dataplatform.warehouse.dto.MetadataTableColumnSnapshot;
 import com.bestwo.dataplatform.warehouse.dto.MetadataTableResponse;
+import com.bestwo.dataplatform.warehouse.dto.AlertRecordResponse;
+import com.bestwo.dataplatform.warehouse.dto.LineageRelationResponse;
 import com.bestwo.dataplatform.warehouse.dto.PayOverviewResponse;
 import com.bestwo.dataplatform.warehouse.dto.PayTrendResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderDetailResponse;
@@ -15,7 +17,9 @@ import com.bestwo.dataplatform.warehouse.dto.OrderSummaryDayResponse;
 import com.bestwo.dataplatform.warehouse.dto.QualityRuleResponse;
 import com.bestwo.dataplatform.warehouse.dto.QualityResultResponse;
 import com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse;
+import com.bestwo.dataplatform.warehouse.entity.DwAlertRecordEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwJobLogEntity;
+import com.bestwo.dataplatform.warehouse.entity.DwLineageRelationEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaColumnEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaDatasourceEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwMetaTableEntity;
@@ -140,6 +144,10 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
 
     int saveMetaColumns(@Param("list") List<DwMetaColumnEntity> list);
 
+    int saveLineageRelations(@Param("list") List<DwLineageRelationEntity> list);
+
+    int saveAlertRecord(@Param("alert") DwAlertRecordEntity alert);
+
     int saveQualityRules(@Param("list") List<DwQualityRuleEntity> list);
 
     int saveQualityResult(@Param("result") DwQualityResultEntity result);
@@ -157,6 +165,16 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
     );
 
     List<MetadataColumnResponse> queryMetaColumns(@Param("tableCode") String tableCode, @Param("limit") Integer limit);
+
+    List<LineageRelationResponse> queryLineageRelations(
+        @Param("tableCode") String tableCode,
+        @Param("limit") Integer limit
+    );
+
+    List<AlertRecordResponse> queryAlertRecords(
+        @Param("alertStatus") String alertStatus,
+        @Param("limit") Integer limit
+    );
 
     List<JobDefinitionResponse> queryJobDefinitions(@Param("limit") Integer limit);
 
