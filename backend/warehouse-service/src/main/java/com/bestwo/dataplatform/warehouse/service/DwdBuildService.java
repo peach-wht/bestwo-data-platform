@@ -3,6 +3,7 @@ package com.bestwo.dataplatform.warehouse.service;
 import com.bestwo.dataplatform.common.exception.BusinessException;
 import com.bestwo.dataplatform.warehouse.dto.DwBuildRunResponse;
 import com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse;
+import com.bestwo.dataplatform.warehouse.entity.DwJobLogEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobLogEntity;
 import com.bestwo.dataplatform.warehouse.mapper.WarehouseDorisMapper;
@@ -22,7 +23,8 @@ public class DwdBuildService {
     private static final String JOB_NAME = "Build DWD order detail from Doris ODS";
     private static final List<String> META_SCHEMA_RESOURCES = List.of(
         "sql/doris/meta/01_create_dw_sync_job.sql",
-        "sql/doris/meta/02_create_dw_sync_job_log.sql"
+        "sql/doris/meta/02_create_dw_sync_job_log.sql",
+        "sql/doris/meta/06_create_dw_job_log.sql"
     );
     private static final String DWD_SCHEMA_RESOURCE = "sql/doris/dwd/01_create_dwd_wx_order_detail.sql";
     private static final String DWD_TABLE_NAME = "dwd_wx_order_detail";
@@ -61,6 +63,7 @@ public class DwdBuildService {
 
         saveJob(buildJob(runStatus, message, finishedAt));
         saveJobLog(buildJobLog(logId, runStatus, message, outputRowCount, startedAt, finishedAt, durationMs));
+        saveDwJobLog(buildDwJobLog(logId, runStatus, message, outputRowCount, startedAt, finishedAt, durationMs));
 
         if (!"SUCCESS".equals(runStatus)) {
             throw new BusinessException(message);
@@ -272,6 +275,10 @@ public class DwdBuildService {
         warehouseDorisMapper.saveSyncJobLog(log);
     }
 
+    private void saveDwJobLog(DwJobLogEntity log) {
+        warehouseDorisMapper.saveDwJobLog(log);
+    }
+
     private DwSyncJobEntity buildJob(String runStatus, String message, Instant finishedAt) {
         DwSyncJobEntity job = new DwSyncJobEntity();
         job.setJobCode(JOB_CODE);
@@ -307,6 +314,34 @@ public class DwdBuildService {
         log.setSyncedOrderCount(outputRowCount);
         log.setSyncedPaymentOrderCount(0L);
         log.setSyncedNotifyLogCount(0L);
+        log.setStartedAt(Timestamp.from(startedAt));
+        log.setFinishedAt(Timestamp.from(finishedAt));
+        log.setDurationMs(durationMs);
+        log.setCreatedAt(Timestamp.from(finishedAt));
+        return log;
+    }
+
+    private DwJobLogEntity buildDwJobLog(
+        String logId,
+        String runStatus,
+        String message,
+        Long outputRowCount,
+        Instant startedAt,
+        Instant finishedAt,
+        long durationMs
+    ) {
+        DwJobLogEntity log = new DwJobLogEntity();
+        log.setLogId(logId);
+        log.setJobCode(JOB_CODE);
+        log.setJobName(JOB_NAME);
+        log.setJobType("BUILD_DWD");
+        log.setSourceType("DORIS");
+        log.setSourceTables("ods_wx_order,ods_wx_payment_order,ods_wx_payment_notify");
+        log.setTargetTables(DWD_TABLE_NAME);
+        log.setRunStatus(runStatus);
+        log.setMessage(truncate(message, 255));
+        log.setMetricOneLabel("outputRowCount");
+        log.setMetricOneValue(outputRowCount);
         log.setStartedAt(Timestamp.from(startedAt));
         log.setFinishedAt(Timestamp.from(finishedAt));
         log.setDurationMs(durationMs);

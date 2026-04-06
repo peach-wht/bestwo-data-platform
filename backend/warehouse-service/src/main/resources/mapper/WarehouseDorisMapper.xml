@@ -375,6 +375,135 @@
         )
     </insert>
 
+    <insert id="saveDwJobLog">
+        INSERT INTO dw_job_log (
+            log_id,
+            job_code,
+            job_name,
+            job_type,
+            source_type,
+            source_tables,
+            target_tables,
+            run_status,
+            message,
+            metric_one_label,
+            metric_one_value,
+            metric_two_label,
+            metric_two_value,
+            metric_three_label,
+            metric_three_value,
+            started_at,
+            finished_at,
+            duration_ms,
+            created_at
+        )
+        VALUES (
+            #{log.logId},
+            #{log.jobCode},
+            #{log.jobName},
+            #{log.jobType},
+            #{log.sourceType},
+            #{log.sourceTables},
+            #{log.targetTables},
+            #{log.runStatus},
+            #{log.message},
+            #{log.metricOneLabel},
+            #{log.metricOneValue},
+            #{log.metricTwoLabel},
+            #{log.metricTwoValue},
+            #{log.metricThreeLabel},
+            #{log.metricThreeValue},
+            #{log.startedAt},
+            #{log.finishedAt},
+            #{log.durationMs},
+            #{log.createdAt}
+        )
+    </insert>
+
+    <insert id="saveMetaDatasource">
+        INSERT INTO dw_meta_datasource (
+            datasource_code,
+            datasource_name,
+            datasource_type,
+            host,
+            port,
+            database_name,
+            owner,
+            description,
+            enabled,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{datasource.datasourceCode},
+            #{datasource.datasourceName},
+            #{datasource.datasourceType},
+            #{datasource.host},
+            #{datasource.port},
+            #{datasource.databaseName},
+            #{datasource.owner},
+            #{datasource.description},
+            #{datasource.enabled},
+            #{datasource.createdAt},
+            #{datasource.updatedAt}
+        )
+    </insert>
+
+    <insert id="saveMetaTable">
+        INSERT INTO dw_meta_table (
+            table_code,
+            datasource_code,
+            table_name,
+            table_layer,
+            table_category,
+            table_comment,
+            owner,
+            refresh_strategy,
+            column_count,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{table.tableCode},
+            #{table.datasourceCode},
+            #{table.tableName},
+            #{table.tableLayer},
+            #{table.tableCategory},
+            #{table.tableComment},
+            #{table.owner},
+            #{table.refreshStrategy},
+            #{table.columnCount},
+            #{table.createdAt},
+            #{table.updatedAt}
+        )
+    </insert>
+
+    <insert id="saveMetaColumns">
+        INSERT INTO dw_meta_column (
+            table_code,
+            column_name,
+            data_type,
+            nullable_flag,
+            column_comment,
+            column_order,
+            created_at,
+            updated_at
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.tableCode},
+                #{item.columnName},
+                #{item.dataType},
+                #{item.nullableFlag},
+                #{item.columnComment},
+                #{item.columnOrder},
+                #{item.createdAt},
+                #{item.updatedAt}
+            )
+        </foreach>
+    </insert>
+
     <select id="queryLatestSyncJobLogs" resultType="com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse">
         SELECT
             CAST(log_id AS CHAR) AS logId,
@@ -410,6 +539,107 @@
             duration_ms AS durationMs,
             created_at AS createdAt
         FROM dw_sync_job_log
+        <if test="jobCode != null and jobCode != ''">
+            WHERE job_code = #{jobCode}
+        </if>
+        ORDER BY started_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryMetaDatasources" resultType="com.bestwo.dataplatform.warehouse.dto.MetadataDatasourceResponse">
+        SELECT
+            CAST(datasource_code AS CHAR) AS datasourceCode,
+            CAST(datasource_name AS CHAR) AS datasourceName,
+            CAST(datasource_type AS CHAR) AS datasourceType,
+            CAST(host AS CHAR) AS host,
+            port AS port,
+            CAST(database_name AS CHAR) AS databaseName,
+            CAST(owner AS CHAR) AS owner,
+            CAST(description AS CHAR) AS description,
+            enabled AS enabled
+        FROM dw_meta_datasource
+        ORDER BY datasource_code ASC
+    </select>
+
+    <select id="queryMetaTables" resultType="com.bestwo.dataplatform.warehouse.dto.MetadataTableResponse">
+        SELECT
+            CAST(table_code AS CHAR) AS tableCode,
+            CAST(datasource_code AS CHAR) AS datasourceCode,
+            CAST(table_name AS CHAR) AS tableName,
+            CAST(table_layer AS CHAR) AS tableLayer,
+            CAST(table_category AS CHAR) AS tableCategory,
+            CAST(table_comment AS CHAR) AS tableComment,
+            CAST(owner AS CHAR) AS owner,
+            CAST(refresh_strategy AS CHAR) AS refreshStrategy,
+            column_count AS columnCount
+        FROM dw_meta_table
+        <where>
+            <if test="datasourceCode != null and datasourceCode != ''">
+                datasource_code = #{datasourceCode}
+            </if>
+            <if test="tableLayer != null and tableLayer != ''">
+                <if test="datasourceCode != null and datasourceCode != ''">
+                    AND
+                </if>
+                table_layer = #{tableLayer}
+            </if>
+        </where>
+        ORDER BY table_layer ASC, table_name ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryMetaColumns" resultType="com.bestwo.dataplatform.warehouse.dto.MetadataColumnResponse">
+        SELECT
+            CAST(table_code AS CHAR) AS tableCode,
+            CAST(column_name AS CHAR) AS columnName,
+            CAST(data_type AS CHAR) AS dataType,
+            nullable_flag AS nullableFlag,
+            CAST(column_comment AS CHAR) AS columnComment,
+            column_order AS columnOrder
+        FROM dw_meta_column
+        WHERE table_code = #{tableCode}
+        ORDER BY column_order ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryJobDefinitions" resultType="com.bestwo.dataplatform.warehouse.dto.JobDefinitionResponse">
+        SELECT
+            CAST(job_code AS CHAR) AS jobCode,
+            CAST(job_name AS CHAR) AS jobName,
+            CAST(source_type AS CHAR) AS sourceType,
+            CAST(source_tables AS CHAR) AS sourceTables,
+            CAST(target_tables AS CHAR) AS targetTables,
+            enabled AS enabled,
+            CAST(remark AS CHAR) AS remark,
+            CAST(last_run_status AS CHAR) AS lastRunStatus,
+            CAST(last_run_message AS CHAR) AS lastRunMessage,
+            CAST(last_run_at AS CHAR) AS lastRunAt
+        FROM dw_sync_job
+        ORDER BY job_code ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="queryDwJobLogs" resultType="com.bestwo.dataplatform.warehouse.dto.JobExecutionLogResponse">
+        SELECT
+            CAST(log_id AS CHAR) AS logId,
+            CAST(job_code AS CHAR) AS jobCode,
+            CAST(job_name AS CHAR) AS jobName,
+            CAST(job_type AS CHAR) AS jobType,
+            CAST(source_type AS CHAR) AS sourceType,
+            CAST(source_tables AS CHAR) AS sourceTables,
+            CAST(target_tables AS CHAR) AS targetTables,
+            CAST(run_status AS CHAR) AS runStatus,
+            CAST(message AS CHAR) AS message,
+            CAST(metric_one_label AS CHAR) AS metricOneLabel,
+            metric_one_value AS metricOneValue,
+            CAST(metric_two_label AS CHAR) AS metricTwoLabel,
+            metric_two_value AS metricTwoValue,
+            CAST(metric_three_label AS CHAR) AS metricThreeLabel,
+            metric_three_value AS metricThreeValue,
+            CAST(started_at AS CHAR) AS startedAt,
+            CAST(finished_at AS CHAR) AS finishedAt,
+            duration_ms AS durationMs
+        FROM dw_job_log
         <if test="jobCode != null and jobCode != ''">
             WHERE job_code = #{jobCode}
         </if>

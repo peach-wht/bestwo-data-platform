@@ -3,6 +3,7 @@ package com.bestwo.dataplatform.warehouse.service;
 import com.bestwo.dataplatform.common.exception.BusinessException;
 import com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse;
 import com.bestwo.dataplatform.warehouse.dto.SyncJobRunResponse;
+import com.bestwo.dataplatform.warehouse.entity.DwJobLogEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobLogEntity;
 import com.bestwo.dataplatform.warehouse.mapper.WarehouseDorisMapper;
@@ -29,7 +30,8 @@ public class OrderSyncService {
     private static final int BATCH_SIZE = 100;
     private static final List<String> META_SCHEMA_RESOURCES = List.of(
         "sql/doris/meta/01_create_dw_sync_job.sql",
-        "sql/doris/meta/02_create_dw_sync_job_log.sql"
+        "sql/doris/meta/02_create_dw_sync_job_log.sql",
+        "sql/doris/meta/06_create_dw_job_log.sql"
     );
 
     private final WarehouseDorisMapper warehouseDorisMapper;
@@ -79,6 +81,17 @@ public class OrderSyncService {
 
         saveSyncJob(buildSyncJob(runStatus, message, finishedAt));
         saveSyncJobLog(buildSyncJobLog(
+            logId,
+            runStatus,
+            message,
+            syncedOrderCount,
+            syncedPaymentOrderCount,
+            syncedNotifyLogCount,
+            startedAt,
+            finishedAt,
+            durationMs
+        ));
+        saveDwJobLog(buildDwJobLog(
             logId,
             runStatus,
             message,
@@ -211,6 +224,10 @@ public class OrderSyncService {
         warehouseDorisMapper.saveSyncJobLog(log);
     }
 
+    private void saveDwJobLog(DwJobLogEntity log) {
+        warehouseDorisMapper.saveDwJobLog(log);
+    }
+
     private DwSyncJobEntity buildSyncJob(String runStatus, String message, Instant finishedAt) {
         DwSyncJobEntity job = new DwSyncJobEntity();
         job.setJobCode(JOB_CODE);
@@ -248,6 +265,40 @@ public class OrderSyncService {
         log.setSyncedOrderCount(syncedOrderCount);
         log.setSyncedPaymentOrderCount(syncedPaymentOrderCount);
         log.setSyncedNotifyLogCount(syncedNotifyLogCount);
+        log.setStartedAt(Timestamp.from(startedAt));
+        log.setFinishedAt(Timestamp.from(finishedAt));
+        log.setDurationMs(durationMs);
+        log.setCreatedAt(Timestamp.from(finishedAt));
+        return log;
+    }
+
+    private DwJobLogEntity buildDwJobLog(
+        String logId,
+        String runStatus,
+        String message,
+        long syncedOrderCount,
+        long syncedPaymentOrderCount,
+        long syncedNotifyLogCount,
+        Instant startedAt,
+        Instant finishedAt,
+        long durationMs
+    ) {
+        DwJobLogEntity log = new DwJobLogEntity();
+        log.setLogId(logId);
+        log.setJobCode(JOB_CODE);
+        log.setJobName(JOB_NAME);
+        log.setJobType("SYNC");
+        log.setSourceType("POSTGRESQL");
+        log.setSourceTables("biz_order,biz_payment_order,biz_payment_notify_log");
+        log.setTargetTables("ods_wx_order,ods_wx_payment_order,ods_wx_payment_notify");
+        log.setRunStatus(runStatus);
+        log.setMessage(truncate(message, 255));
+        log.setMetricOneLabel("syncedOrderCount");
+        log.setMetricOneValue(syncedOrderCount);
+        log.setMetricTwoLabel("syncedPaymentOrderCount");
+        log.setMetricTwoValue(syncedPaymentOrderCount);
+        log.setMetricThreeLabel("syncedNotifyLogCount");
+        log.setMetricThreeValue(syncedNotifyLogCount);
         log.setStartedAt(Timestamp.from(startedAt));
         log.setFinishedAt(Timestamp.from(finishedAt));
         log.setDurationMs(durationMs);

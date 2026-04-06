@@ -145,3 +145,35 @@ Notes:
 - `pay/trend` requires `startDate` and `endDate`.
 - `jobs/logs` supports optional `jobCode` and `limit`.
 - `quality/results` currently returns an empty list when the quality result table has not been created yet. The real quality task will be added in the next stage.
+
+## Governance Metadata
+
+The warehouse module now supports minimal metadata registration and unified task log queries.
+
+Metadata init endpoint:
+
+- `POST /warehouse/meta/init`
+
+Metadata query endpoints:
+
+- `GET /warehouse/meta/datasources`
+- `GET /warehouse/meta/tables`
+- `GET /warehouse/meta/columns?tableCode=ods_wx_order`
+- `GET /warehouse/meta/jobs`
+- `GET /warehouse/meta/job-logs`
+
+Gateway paths:
+
+- `POST /api/warehouse/meta/init`
+- `GET /api/warehouse/meta/datasources`
+- `GET /api/warehouse/meta/tables`
+- `GET /api/warehouse/meta/columns`
+- `GET /api/warehouse/meta/jobs`
+- `GET /api/warehouse/meta/job-logs`
+
+This stage creates and maintains:
+
+- `dw_meta_datasource`
+- `dw_meta_table`
+- `dw_meta_column`
+- `dw_job_log`

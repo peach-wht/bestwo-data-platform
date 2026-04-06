@@ -2,12 +2,22 @@ package com.bestwo.dataplatform.warehouse.mapper;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.bestwo.dataplatform.warehouse.dto.JobDefinitionResponse;
+import com.bestwo.dataplatform.warehouse.dto.JobExecutionLogResponse;
+import com.bestwo.dataplatform.warehouse.dto.MetadataColumnResponse;
+import com.bestwo.dataplatform.warehouse.dto.MetadataDatasourceResponse;
+import com.bestwo.dataplatform.warehouse.dto.MetadataTableColumnSnapshot;
+import com.bestwo.dataplatform.warehouse.dto.MetadataTableResponse;
 import com.bestwo.dataplatform.warehouse.dto.PayOverviewResponse;
 import com.bestwo.dataplatform.warehouse.dto.PayTrendResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderDetailResponse;
 import com.bestwo.dataplatform.warehouse.dto.OrderSummaryDayResponse;
 import com.bestwo.dataplatform.warehouse.dto.QualityResultResponse;
 import com.bestwo.dataplatform.warehouse.dto.SyncJobLogResponse;
+import com.bestwo.dataplatform.warehouse.entity.DwJobLogEntity;
+import com.bestwo.dataplatform.warehouse.entity.DwMetaColumnEntity;
+import com.bestwo.dataplatform.warehouse.entity.DwMetaDatasourceEntity;
+import com.bestwo.dataplatform.warehouse.entity.DwMetaTableEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobEntity;
 import com.bestwo.dataplatform.warehouse.entity.DwSyncJobLogEntity;
 import com.bestwo.dataplatform.warehouse.entity.OdsWxOrderEntity;
@@ -39,6 +49,24 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
           AND TABLE_NAME = #{tableName}
         """)
     List<String> listTableColumns(@Param("database") String database, @Param("tableName") String tableName);
+
+    @Select("""
+        SELECT
+            TABLE_NAME AS tableName,
+            COLUMN_NAME AS columnName,
+            DATA_TYPE AS dataType,
+            IS_NULLABLE AS isNullable,
+            ORDINAL_POSITION AS ordinalPosition,
+            COLUMN_COMMENT AS columnComment
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = #{database}
+          AND TABLE_NAME = #{tableName}
+        ORDER BY ORDINAL_POSITION
+        """)
+    List<MetadataTableColumnSnapshot> listTableColumnDetails(
+        @Param("database") String database,
+        @Param("tableName") String tableName
+    );
 
     List<OrderDetailResponse> queryOrders(
         @Param("tableSpec") OrderTableSpec tableSpec,
@@ -101,9 +129,31 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
 
     int saveSyncJobLog(@Param("log") DwSyncJobLogEntity log);
 
+    int saveDwJobLog(@Param("log") DwJobLogEntity log);
+
+    int saveMetaDatasource(@Param("datasource") DwMetaDatasourceEntity datasource);
+
+    int saveMetaTable(@Param("table") DwMetaTableEntity table);
+
+    int saveMetaColumns(@Param("list") List<DwMetaColumnEntity> list);
+
     List<SyncJobLogResponse> queryLatestSyncJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
 
     List<SyncJobLogResponse> queryRecentSyncJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
+
+    List<MetadataDatasourceResponse> queryMetaDatasources();
+
+    List<MetadataTableResponse> queryMetaTables(
+        @Param("datasourceCode") String datasourceCode,
+        @Param("tableLayer") String tableLayer,
+        @Param("limit") Integer limit
+    );
+
+    List<MetadataColumnResponse> queryMetaColumns(@Param("tableCode") String tableCode, @Param("limit") Integer limit);
+
+    List<JobDefinitionResponse> queryJobDefinitions(@Param("limit") Integer limit);
+
+    List<JobExecutionLogResponse> queryDwJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
 
     List<QualityResultResponse> queryQualityResults(
         @Param("tableSpec") QualityResultTableSpec tableSpec,
