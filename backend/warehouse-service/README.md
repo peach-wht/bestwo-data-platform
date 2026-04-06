@@ -83,3 +83,19 @@ If called through the gateway:
 
 - `POST /api/dw/jobs/sync-order/run`
 - `GET /api/dw/jobs/sync-order/logs`
+
+## DWD Build Job
+
+The service now also supports building the DWD wide table:
+
+- `dwd_wx_order_detail`
+
+Manual build endpoints:
+
+- `POST /dw/jobs/build-dwd/run`
+- `GET /dw/jobs/build-dwd/logs`
+
+If called through the gateway:
+
+- `POST /api/dw/jobs/build-dwd/run`
+- `GET /api/dw/jobs/build-dwd/logs`
