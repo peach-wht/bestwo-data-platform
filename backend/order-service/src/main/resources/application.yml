@@ -22,6 +22,7 @@ logging:
 
 bestwo:
   pay:
+    provider: ${PAY_PROVIDER:MOCK}
     wechat:
       enabled: ${WECHAT_PAY_ENABLED:false}
       base-url: ${WECHAT_PAY_BASE_URL:https://api.mch.weixin.qq.com}

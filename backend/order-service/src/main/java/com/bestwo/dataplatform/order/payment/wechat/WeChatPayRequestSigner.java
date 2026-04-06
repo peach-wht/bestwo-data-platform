@@ -40,9 +40,6 @@ public class WeChatPayRequestSigner {
     }
 
     private void validateConfig(WeChatPayProperties properties) {
-        if (!properties.isEnabled()) {
-            throw new BusinessException("wechat pay client is disabled");
-        }
         if (!StringUtils.hasText(properties.getMerchantId())
             || !StringUtils.hasText(properties.getMerchantSerialNo())
             || !StringUtils.hasText(properties.getPrivateKeyPem())) {

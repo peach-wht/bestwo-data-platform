@@ -2,6 +2,7 @@ package com.bestwo.dataplatform.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bestwo.dataplatform.common.exception.BusinessException;
+import com.bestwo.dataplatform.order.config.PayProperties;
 import com.bestwo.dataplatform.order.domain.enums.OrderPayStatus;
 import com.bestwo.dataplatform.order.domain.enums.OrderStatus;
 import com.bestwo.dataplatform.order.domain.enums.PayNotifyProcessStatus;
@@ -15,6 +16,7 @@ import com.bestwo.dataplatform.order.domain.support.PaymentOrderStatusFlow;
 import com.bestwo.dataplatform.order.mapper.BizOrderMapper;
 import com.bestwo.dataplatform.order.mapper.BizPaymentNotifyLogMapper;
 import com.bestwo.dataplatform.order.mapper.BizPaymentOrderMapper;
+import com.bestwo.dataplatform.order.payment.mock.MockPaymentConstants;
 import com.bestwo.dataplatform.order.payment.model.PayNotifyResult;
 import com.bestwo.dataplatform.order.payment.spi.PayClientRegistry;
 import com.bestwo.dataplatform.order.payment.wechat.WeChatPayNotifyVerifier;
@@ -40,6 +42,7 @@ public class PaymentNotifyService {
     private final BizPaymentNotifyLogMapper bizPaymentNotifyLogMapper;
     private final BizPaymentOrderMapper bizPaymentOrderMapper;
     private final BizOrderMapper bizOrderMapper;
+    private final PayProperties payProperties;
     private final PayClientRegistry payClientRegistry;
     private final WeChatPayNotifyVerifier weChatPayNotifyVerifier;
     private final ObjectMapper objectMapper;
@@ -48,6 +51,7 @@ public class PaymentNotifyService {
         BizPaymentNotifyLogMapper bizPaymentNotifyLogMapper,
         BizPaymentOrderMapper bizPaymentOrderMapper,
         BizOrderMapper bizOrderMapper,
+        PayProperties payProperties,
         PayClientRegistry payClientRegistry,
         WeChatPayNotifyVerifier weChatPayNotifyVerifier,
         ObjectMapper objectMapper
@@ -55,6 +59,7 @@ public class PaymentNotifyService {
         this.bizPaymentNotifyLogMapper = bizPaymentNotifyLogMapper;
         this.bizPaymentOrderMapper = bizPaymentOrderMapper;
         this.bizOrderMapper = bizOrderMapper;
+        this.payProperties = payProperties;
         this.payClientRegistry = payClientRegistry;
         this.weChatPayNotifyVerifier = weChatPayNotifyVerifier;
         this.objectMapper = objectMapper;
@@ -62,6 +67,7 @@ public class PaymentNotifyService {
 
     @Transactional
     public void handleWeChatPayNotify(String requestBody, HttpHeaders httpHeaders) {
+        payProperties.assertWechatProvider();
         Map<String, String> headers = flattenHeaders(httpHeaders);
         JsonNode envelope = parseJson(requestBody);
         String notifyId = text(envelope, "id");
@@ -90,6 +96,57 @@ public class PaymentNotifyService {
         try {
             weChatPayNotifyVerifier.verifyIfConfigured(requestBody, headers);
             PayNotifyResult notifyResult = payClientRegistry.getClient(PayPlatform.WECHAT_PAY).parseNotify(requestBody, headers);
+            enrichNotifyLog(notifyLog, notifyResult);
+
+            ProcessingOutcome outcome = applyNotifyResult(notifyLog, notifyResult);
+            notifyLog.setProcessStatus(outcome.status().getCode());
+            notifyLog.setProcessMessage(truncate(outcome.message(), 255));
+            notifyLog.setProcessedAt(Instant.now());
+
+            updateNotifyLog(notifyLog);
+        } catch (RuntimeException exception) {
+            notifyLog.setProcessStatus(PayNotifyProcessStatus.FAILED.getCode());
+            notifyLog.setProcessMessage(truncate(exception.getMessage(), 255));
+            notifyLog.setProcessedAt(Instant.now());
+            updateNotifyLog(notifyLog);
+            throw exception;
+        }
+    }
+
+    @Transactional
+    public void handleMockPayNotify(String requestBody) {
+        payProperties.assertMockProvider();
+        Map<String, String> headers = Map.of("X-Mock-Provider", MockPaymentConstants.PROVIDER);
+        JsonNode envelope = parseJson(requestBody);
+        String notifyId = firstNonBlank(text(envelope, "notifyNo"), text(envelope, "notifyId"), text(envelope, "notify_id"));
+
+        BizPaymentNotifyLog notifyLog = null;
+        if (StringUtils.hasText(notifyId)) {
+            notifyLog = findNotifyLog(PayPlatform.WECHAT_PAY, notifyId);
+            if (notifyLog != null && notifyLog.getProcessStatusEnum() != PayNotifyProcessStatus.FAILED) {
+                return;
+            }
+        }
+
+        if (notifyLog == null) {
+            notifyLog = buildMockNotifyLog(requestBody, headers, envelope, notifyId);
+            notifyLog.setProcessStatus(PayNotifyProcessStatus.PROCESSING.getCode());
+
+            int insertedRows = bizPaymentNotifyLogMapper.insert(notifyLog);
+            if (insertedRows != 1) {
+                throw new BusinessException("failed to insert payment notify log");
+            }
+        } else {
+            resetMockNotifyLogForRetry(notifyLog, requestBody, headers, envelope);
+            updateNotifyLog(notifyLog);
+        }
+
+        try {
+            PayNotifyResult notifyResult = payClientRegistry.getClient(PayPlatform.WECHAT_PAY).parseNotify(requestBody, headers);
+            BizPaymentOrder paymentOrder = findPaymentOrder(notifyResult.paymentOrderNo(), notifyResult.merchantOrderNo());
+            if (paymentOrder != null && !isMockPaymentOrder(paymentOrder)) {
+                throw new BusinessException("current payment order is not in mock mode");
+            }
             enrichNotifyLog(notifyLog, notifyResult);
 
             ProcessingOutcome outcome = applyNotifyResult(notifyLog, notifyResult);
@@ -198,11 +255,11 @@ public class PaymentNotifyService {
             case CLOSED -> {
                 paymentOrder.setClosedTime(now);
                 paymentOrder.setFailCode(CHANNEL_CLOSED_CODE);
-                paymentOrder.setFailMessage("payment closed by channel notify");
+                paymentOrder.setFailMessage(truncate(resolveNotifyFailMessage(notifyResult, "payment closed by channel notify"), 255));
             }
             case FAILED -> {
                 paymentOrder.setFailCode(CHANNEL_FAIL_CODE);
-                paymentOrder.setFailMessage("payment failed by channel notify");
+                paymentOrder.setFailMessage(truncate(resolveNotifyFailMessage(notifyResult, "payment failed by channel notify"), 255));
             }
             case WAIT_PAY -> {
                 if (notifyResult.paidAt() != null) {
@@ -376,6 +433,26 @@ public class PaymentNotifyService {
         return notifyLog;
     }
 
+    private BizPaymentNotifyLog buildMockNotifyLog(
+        String requestBody,
+        Map<String, String> headers,
+        JsonNode envelope,
+        String notifyId
+    ) {
+        BizPaymentNotifyLog notifyLog = new BizPaymentNotifyLog();
+        notifyLog.setNotifyLogId(OrderNoGenerator.generateNotifyLogId());
+        notifyLog.setNotifyId(trimToNull(notifyId));
+        notifyLog.setPlatform(PayPlatform.WECHAT_PAY.getCode());
+        notifyLog.setNotifyType(PayNotifyType.PAY.getCode());
+        notifyLog.setEventType(MockPaymentConstants.EVENT_TYPE);
+        notifyLog.setEventStatus(trimToNull(text(envelope, "tradeState")));
+        notifyLog.setSummary("mock payment notify");
+        notifyLog.setRequestHeadersJson(toJson(headers));
+        notifyLog.setRequestBody(requestBody);
+        notifyLog.setReceivedAt(Instant.now());
+        return notifyLog;
+    }
+
     private void resetNotifyLogForRetry(
         BizPaymentNotifyLog notifyLog,
         String requestBody,
@@ -392,6 +469,28 @@ public class PaymentNotifyService {
         notifyLog.setResourceAssociatedData(trimToNull(text(envelope.path("resource"), "associated_data")));
         notifyLog.setSignatureSerialNo(trimToNull(header(headers, "Wechatpay-Serial")));
         notifyLog.setSignatureValue(trimToNull(header(headers, "Wechatpay-Signature")));
+        notifyLog.setProcessStatus(PayNotifyProcessStatus.PROCESSING.getCode());
+        notifyLog.setProcessMessage("retrying failed callback");
+        notifyLog.setProcessedAt(null);
+    }
+
+    private void resetMockNotifyLogForRetry(
+        BizPaymentNotifyLog notifyLog,
+        String requestBody,
+        Map<String, String> headers,
+        JsonNode envelope
+    ) {
+        notifyLog.setEventType(MockPaymentConstants.EVENT_TYPE);
+        notifyLog.setEventStatus(trimToNull(text(envelope, "tradeState")));
+        notifyLog.setSummary("retrying mock payment notify");
+        notifyLog.setRequestHeadersJson(toJson(headers));
+        notifyLog.setRequestBody(requestBody);
+        notifyLog.setEncryptType(null);
+        notifyLog.setResourceCiphertext(null);
+        notifyLog.setResourceNonce(null);
+        notifyLog.setResourceAssociatedData(null);
+        notifyLog.setSignatureSerialNo(null);
+        notifyLog.setSignatureValue(null);
         notifyLog.setProcessStatus(PayNotifyProcessStatus.PROCESSING.getCode());
         notifyLog.setProcessMessage("retrying failed callback");
         notifyLog.setProcessedAt(null);
@@ -479,7 +578,7 @@ public class PaymentNotifyService {
         try {
             return objectMapper.readTree(requestBody);
         } catch (JsonProcessingException exception) {
-            throw new BusinessException("invalid wechat pay notify body");
+            throw new BusinessException("invalid pay notify body");
         }
     }
 
@@ -522,6 +621,24 @@ public class PaymentNotifyService {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private String resolveNotifyFailMessage(PayNotifyResult notifyResult, String fallbackMessage) {
+        return StringUtils.hasText(notifyResult.failMessage()) ? notifyResult.failMessage().trim() : fallbackMessage;
+    }
+
+    private boolean isMockPaymentOrder(BizPaymentOrder paymentOrder) {
+        return MockPaymentConstants.MERCHANT_CODE.equalsIgnoreCase(paymentOrder.getMerchantCode())
+            || (paymentOrder.getChannelPrepayId() != null && paymentOrder.getChannelPrepayId().startsWith("mock_"));
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 
     private record ProcessingOutcome(PayNotifyProcessStatus status, String message) {}

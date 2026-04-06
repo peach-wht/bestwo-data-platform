@@ -5,10 +5,14 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import PageContainer from '@/components/PageContainer.vue'
 import {
   createOrder,
+  getMockPayment,
   getOrderDetail,
   getOrders,
+  mockPaymentFail,
+  mockPaymentSuccess,
   prepayOrder,
   type CreateOrderRequest,
+  type MockPaymentQueryResponse,
   type OrderDetail,
   type OrderListItem,
   type OrderPageData,
@@ -30,6 +34,8 @@ const createFormRef = ref<FormInstance>()
 const createLoading = ref(false)
 const listLoading = ref(false)
 const detailLoading = ref(false)
+const mockPaymentLoading = ref(false)
+const mockActionLoading = ref(false)
 const payingOrderId = ref('')
 const detailVisible = ref(false)
 const payDialogVisible = ref(false)
@@ -62,6 +68,7 @@ const pageData = ref<OrderPageData>({
 
 const currentDetail = ref<OrderDetail | null>(null)
 const currentPrepay = ref<OrderPrepayResponse | null>(null)
+const currentMockPayment = ref<MockPaymentQueryResponse | null>(null)
 
 const createRules: FormRules<CreateOrderForm> = {
   orderTitle: [{ required: true, message: '请输入订单标题', trigger: 'blur' }],
@@ -93,6 +100,72 @@ const loadOrders = async (pageNum = queryForm.pageNum, pageSize = queryForm.page
     ElMessage.error(message)
   } finally {
     listLoading.value = false
+  }
+}
+
+const loadOrderDetail = async (orderId: string, silent = false) => {
+  if (!silent) {
+    detailLoading.value = true
+  }
+
+  try {
+    const response = await getOrderDetail(orderId)
+    currentDetail.value = ensureApiSuccess(response, '加载订单详情失败')
+  } catch (error) {
+    currentDetail.value = null
+    if (!silent) {
+      ElMessage.error(resolveErrorMessage(error, '加载订单详情失败'))
+    }
+  } finally {
+    if (!silent) {
+      detailLoading.value = false
+    }
+  }
+}
+
+const refreshCurrentOrderViews = async () => {
+  await loadOrders(queryForm.pageNum, queryForm.pageSize)
+
+  if (detailVisible.value && currentDetail.value?.orderId) {
+    await loadOrderDetail(currentDetail.value.orderId, true)
+  }
+}
+
+const syncMockPaymentFromPrepay = (prepay: OrderPrepayResponse | null) => {
+  if (!prepay?.mockMode) {
+    currentMockPayment.value = null
+    return
+  }
+
+  currentMockPayment.value = {
+    paymentOrderNo: prepay.paymentOrderNo,
+    orderNo: prepay.orderNo,
+    status: prepay.status,
+    platform: prepay.platform,
+    tradeType: prepay.tradeType,
+    paymentProvider: prepay.paymentProvider,
+    mockMode: prepay.mockMode,
+    mockPayToken: prepay.mockPayToken || prepay.channelPrepayId,
+    mockPayUrl: prepay.mockPayUrl || prepay.codeUrl,
+    channelOrderNo: prepay.channelOrderNo
+  }
+}
+
+const syncPrepayWithMockPayment = (mockPayment: MockPaymentQueryResponse) => {
+  if (!currentPrepay.value) {
+    return
+  }
+
+  currentPrepay.value = {
+    ...currentPrepay.value,
+    status: mockPayment.status,
+    channelOrderNo: mockPayment.channelOrderNo,
+    channelPrepayId: mockPayment.mockPayToken || currentPrepay.value.channelPrepayId,
+    paymentProvider: mockPayment.paymentProvider || currentPrepay.value.paymentProvider,
+    mockMode: mockPayment.mockMode ?? currentPrepay.value.mockMode,
+    mockPayToken: mockPayment.mockPayToken || currentPrepay.value.mockPayToken,
+    mockPayUrl: mockPayment.mockPayUrl || currentPrepay.value.mockPayUrl,
+    codeUrl: mockPayment.mockPayUrl || currentPrepay.value.codeUrl
   }
 }
 
@@ -153,19 +226,8 @@ const handleReset = async () => {
 }
 
 const handleViewDetail = async (row: OrderListItem) => {
-  detailLoading.value = true
   detailVisible.value = true
-
-  try {
-    const response = await getOrderDetail(row.orderId)
-    currentDetail.value = ensureApiSuccess(response, '加载订单详情失败')
-  } catch (error) {
-    const message = resolveErrorMessage(error, '加载订单详情失败')
-    currentDetail.value = null
-    ElMessage.error(message)
-  } finally {
-    detailLoading.value = false
-  }
+  await loadOrderDetail(row.orderId)
 }
 
 const handlePrepay = async (row: OrderListItem) => {
@@ -174,11 +236,12 @@ const handlePrepay = async (row: OrderListItem) => {
   try {
     const response = await prepayOrder(row.orderId)
     currentPrepay.value = ensureApiSuccess(response, '发起支付失败')
+    syncMockPaymentFromPrepay(currentPrepay.value)
     payDialogVisible.value = true
-    ElMessage.success('已生成微信支付预下单参数')
-    await loadOrders(queryForm.pageNum, queryForm.pageSize)
+    ElMessage.success(currentPrepay.value.mockMode ? '已生成 Mock 支付单，可直接在弹窗中模拟收银台操作' : '已生成微信支付预下单参数')
+    await refreshCurrentOrderViews()
   } catch (error) {
-    const message = resolveErrorMessage(error, '发起支付失败，请检查微信支付配置')
+    const message = resolveErrorMessage(error, '发起支付失败，请检查支付服务状态')
     ElMessage.error(message)
   } finally {
     payingOrderId.value = ''
@@ -196,16 +259,86 @@ const handleSizeChange = async (pageSize: number) => {
   await loadOrders(1, pageSize)
 }
 
+const handleRefreshMockPayment = async (showMessage = false) => {
+  if (!currentPrepay.value?.paymentOrderNo) {
+    return
+  }
+
+  mockPaymentLoading.value = true
+
+  try {
+    const response = await getMockPayment(currentPrepay.value.paymentOrderNo)
+    const data = ensureApiSuccess(response, '查询模拟支付结果失败')
+    currentMockPayment.value = data
+    syncPrepayWithMockPayment(data)
+    if (showMessage) {
+      ElMessage.success(`当前支付状态：${data.status || '--'}`)
+    }
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '查询模拟支付结果失败'))
+  } finally {
+    mockPaymentLoading.value = false
+  }
+}
+
+const handleMockSuccess = async () => {
+  if (!currentPrepay.value?.paymentOrderNo) {
+    return
+  }
+
+  mockActionLoading.value = true
+
+  try {
+    const response = await mockPaymentSuccess(currentPrepay.value.paymentOrderNo, {
+      operator: 'frontend-mock-user'
+    })
+    const data = ensureApiSuccess(response, '模拟支付成功失败')
+    currentMockPayment.value = data
+    syncPrepayWithMockPayment(data)
+    ElMessage.success('已模拟支付成功，并走完统一回调处理逻辑')
+    await refreshCurrentOrderViews()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '模拟支付成功失败'))
+  } finally {
+    mockActionLoading.value = false
+  }
+}
+
+const handleMockFail = async () => {
+  if (!currentPrepay.value?.paymentOrderNo) {
+    return
+  }
+
+  mockActionLoading.value = true
+
+  try {
+    const response = await mockPaymentFail(currentPrepay.value.paymentOrderNo, {
+      operator: 'frontend-mock-user',
+      reason: 'USER_CANCEL'
+    })
+    const data = ensureApiSuccess(response, '模拟支付失败失败')
+    currentMockPayment.value = data
+    syncPrepayWithMockPayment(data)
+    ElMessage.success('已模拟支付失败，并走完统一回调处理逻辑')
+    await refreshCurrentOrderViews()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '模拟支付失败失败'))
+  } finally {
+    mockActionLoading.value = false
+  }
+}
+
 const copyCodeUrl = async () => {
-  if (!currentPrepay.value?.codeUrl) {
+  const target = currentPrepay.value?.mockPayUrl || currentPrepay.value?.codeUrl
+  if (!target) {
     return
   }
 
   try {
-    await navigator.clipboard.writeText(currentPrepay.value.codeUrl)
-    ElMessage.success('code_url 已复制到剪贴板')
+    await navigator.clipboard.writeText(target)
+    ElMessage.success('支付链接已复制到剪贴板')
   } catch {
-    ElMessage.warning('复制失败，请手动复制 code_url')
+    ElMessage.warning('复制失败，请手动复制支付链接')
   }
 }
 
@@ -216,6 +349,7 @@ const getStatusTagType = (status?: string | null) => {
       return 'success'
     case 'WAIT_PAY':
     case 'PAYING':
+    case 'PREPAYING':
       return 'warning'
     case 'FAILED':
       return 'danger'
@@ -237,7 +371,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <PageContainer title="订单中心" description="用于创建测试订单、查看订单列表，并通过网关发起微信支付预下单。">
+  <PageContainer
+    title="订单中心"
+    description="用于创建测试订单、查看订单列表，并通过网关发起支付。Mock 模式下可直接在弹窗中模拟收银台成功 / 失败回调。"
+  >
     <div class="order-page">
       <el-alert
         v-if="errorMessage"
@@ -293,7 +430,7 @@ onMounted(async () => {
         <template #header>
           <div class="section-header">
             <h3>订单列表</h3>
-            <span>支持分页、状态筛选和支付操作</span>
+            <span>支持分页、状态筛选、支付和 Mock 收银台联调</span>
           </div>
         </template>
 
@@ -403,20 +540,63 @@ onMounted(async () => {
         </div>
       </el-drawer>
 
-      <el-dialog v-model="payDialogVisible" title="微信预下单结果" width="620px">
-        <el-descriptions v-if="currentPrepay" :column="1" border>
-          <el-descriptions-item label="订单号">{{ currentPrepay.orderNo }}</el-descriptions-item>
-          <el-descriptions-item label="支付单号">{{ currentPrepay.paymentOrderNo }}</el-descriptions-item>
-          <el-descriptions-item label="支付方式">{{ currentPrepay.tradeType || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="支付状态">{{ currentPrepay.status || '--' }}</el-descriptions-item>
-          <el-descriptions-item label="过期时间">{{ formatDateTime(currentPrepay.expireAt) }}</el-descriptions-item>
-          <el-descriptions-item label="code_url">
-            <div class="code-url-wrap">
-              <el-input :model-value="currentPrepay.codeUrl || '--'" readonly />
-              <el-button type="primary" @click="copyCodeUrl">复制</el-button>
+      <el-dialog v-model="payDialogVisible" title="支付预下单结果" width="760px">
+        <div class="pay-dialog-body">
+          <el-descriptions v-if="currentPrepay" :column="2" border>
+            <el-descriptions-item label="订单号">{{ currentPrepay.orderNo }}</el-descriptions-item>
+            <el-descriptions-item label="支付单号">{{ currentPrepay.paymentOrderNo }}</el-descriptions-item>
+            <el-descriptions-item label="支付方式">{{ currentPrepay.tradeType || '--' }}</el-descriptions-item>
+            <el-descriptions-item label="支付状态">
+              <el-tag :type="getStatusTagType(currentPrepay.status)">{{ currentPrepay.status || '--' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="支付提供方">{{ currentPrepay.paymentProvider || 'WECHAT' }}</el-descriptions-item>
+            <el-descriptions-item label="模拟模式">{{ currentPrepay.mockMode ? '是' : '否' }}</el-descriptions-item>
+            <el-descriptions-item label="过期时间">{{ formatDateTime(currentPrepay.expireAt) }}</el-descriptions-item>
+            <el-descriptions-item label="渠道单号">{{ currentPrepay.channelOrderNo || '--' }}</el-descriptions-item>
+            <el-descriptions-item label="支付链接 / code_url" :span="2">
+              <div class="code-url-wrap">
+                <el-input :model-value="currentPrepay.mockPayUrl || currentPrepay.codeUrl || '--'" readonly />
+                <el-button type="primary" @click="copyCodeUrl">复制</el-button>
+              </div>
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <el-card v-if="currentPrepay?.mockMode" shadow="never" class="mock-pay-card">
+            <template #header>
+              <div class="section-header">
+                <h3>模拟收银台</h3>
+                <span>直接调用 /api/pay/mock-payments/** 和统一 mock 回调链路</span>
+              </div>
+            </template>
+
+            <el-alert
+              :closable="false"
+              title="当前是 Mock 支付模式。点击下方按钮会生成模拟回调，并复用现有支付状态流转与入仓链路。"
+              type="info"
+              show-icon
+            />
+
+            <div class="mock-pay-actions">
+              <el-button :loading="mockPaymentLoading" @click="handleRefreshMockPayment(true)">查询支付结果</el-button>
+              <el-button type="success" :loading="mockActionLoading" @click="handleMockSuccess">支付成功</el-button>
+              <el-button type="danger" plain :loading="mockActionLoading" @click="handleMockFail">支付失败</el-button>
             </div>
-          </el-descriptions-item>
-        </el-descriptions>
+
+            <el-descriptions v-if="currentMockPayment" :column="2" border class="mock-pay-result">
+              <el-descriptions-item label="支付单号">{{ currentMockPayment.paymentOrderNo }}</el-descriptions-item>
+              <el-descriptions-item label="订单号">{{ currentMockPayment.orderNo }}</el-descriptions-item>
+              <el-descriptions-item label="当前状态">
+                <el-tag :type="getStatusTagType(currentMockPayment.status)">{{ currentMockPayment.status || '--' }}</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="Mock Token">{{ currentMockPayment.mockPayToken || '--' }}</el-descriptions-item>
+              <el-descriptions-item label="渠道单号">{{ currentMockPayment.channelOrderNo || '--' }}</el-descriptions-item>
+              <el-descriptions-item label="成功时间">{{ formatDateTime(currentMockPayment.successTime) }}</el-descriptions-item>
+              <el-descriptions-item label="失败原因" :span="2">
+                {{ currentMockPayment.failMessage || '--' }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+        </div>
       </el-dialog>
     </div>
   </PageContainer>
@@ -475,10 +655,30 @@ onMounted(async () => {
   margin-top: 16px;
 }
 
+.pay-dialog-body {
+  display: grid;
+  gap: 16px;
+}
+
 .code-url-wrap {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 12px;
+}
+
+.mock-pay-card {
+  border-style: dashed;
+}
+
+.mock-pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.mock-pay-result {
+  margin-top: 16px;
 }
 
 @media (max-width: 960px) {
@@ -492,6 +692,10 @@ onMounted(async () => {
 
   .code-url-wrap {
     grid-template-columns: 1fr;
+  }
+
+  .mock-pay-actions {
+    flex-direction: column;
   }
 }
 </style>

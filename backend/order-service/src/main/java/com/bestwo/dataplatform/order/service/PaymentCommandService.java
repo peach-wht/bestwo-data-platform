@@ -2,6 +2,7 @@ package com.bestwo.dataplatform.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bestwo.dataplatform.common.exception.BusinessException;
+import com.bestwo.dataplatform.order.config.PayProperties;
 import com.bestwo.dataplatform.order.domain.enums.OrderPayStatus;
 import com.bestwo.dataplatform.order.domain.enums.OrderStatus;
 import com.bestwo.dataplatform.order.domain.enums.PayPlatform;
@@ -13,6 +14,7 @@ import com.bestwo.dataplatform.order.domain.support.OrderStatusFlow;
 import com.bestwo.dataplatform.order.dto.OrderPrepayResponse;
 import com.bestwo.dataplatform.order.mapper.BizOrderMapper;
 import com.bestwo.dataplatform.order.mapper.BizPaymentOrderMapper;
+import com.bestwo.dataplatform.order.payment.mock.MockPaymentConstants;
 import com.bestwo.dataplatform.order.payment.model.PayPrepayCommand;
 import com.bestwo.dataplatform.order.payment.model.PayPrepayResult;
 import com.bestwo.dataplatform.order.payment.spi.PayClient;
@@ -35,6 +37,7 @@ public class PaymentCommandService {
     private final BizOrderMapper bizOrderMapper;
     private final BizPaymentOrderMapper bizPaymentOrderMapper;
     private final PayClientRegistry payClientRegistry;
+    private final PayProperties payProperties;
     private final WeChatPayProperties weChatPayProperties;
     private final TransactionTemplate transactionTemplate;
 
@@ -42,12 +45,14 @@ public class PaymentCommandService {
         BizOrderMapper bizOrderMapper,
         BizPaymentOrderMapper bizPaymentOrderMapper,
         PayClientRegistry payClientRegistry,
+        PayProperties payProperties,
         WeChatPayProperties weChatPayProperties,
         TransactionTemplate transactionTemplate
     ) {
         this.bizOrderMapper = bizOrderMapper;
         this.bizPaymentOrderMapper = bizPaymentOrderMapper;
         this.payClientRegistry = payClientRegistry;
+        this.payProperties = payProperties;
         this.weChatPayProperties = weChatPayProperties;
         this.transactionTemplate = transactionTemplate;
     }
@@ -150,7 +155,7 @@ public class PaymentCommandService {
         paymentOrder.setOrderNo(order.getOrderNo());
         paymentOrder.setPlatform(platform.getCode());
         paymentOrder.setTradeType(tradeType.getCode());
-        paymentOrder.setMerchantCode(platform.getCode());
+        paymentOrder.setMerchantCode(resolveMerchantCode(platform));
         paymentOrder.setChannelAppId(resolveChannelAppId(platform));
         paymentOrder.setChannelMerchantId(resolveChannelMerchantId(platform));
         paymentOrder.setSubject(order.getOrderTitle());
@@ -282,6 +287,10 @@ public class PaymentCommandService {
         response.setTradeType(paymentOrder.getTradeType());
         response.setStatus(paymentOrder.getStatus());
         response.setCodeUrl(paymentOrder.getCodeUrl());
+        response.setPaymentProvider(resolvePaymentProvider(paymentOrder));
+        response.setMockMode(isMockPaymentOrder(paymentOrder));
+        response.setMockPayToken(isMockPaymentOrder(paymentOrder) ? paymentOrder.getChannelPrepayId() : null);
+        response.setMockPayUrl(isMockPaymentOrder(paymentOrder) ? paymentOrder.getCodeUrl() : null);
         response.setChannelOrderNo(paymentOrder.getChannelOrderNo());
         response.setChannelPrepayId(paymentOrder.getChannelPrepayId());
         response.setExpireAt(paymentOrder.getExpiredTime());
@@ -303,15 +312,43 @@ public class PaymentCommandService {
     }
 
     private String resolveChannelAppId(PayPlatform platform) {
+        if (isMockPlatform(platform)) {
+            return null;
+        }
         return platform == PayPlatform.WECHAT_PAY ? trimToNull(weChatPayProperties.getAppId()) : null;
     }
 
     private String resolveChannelMerchantId(PayPlatform platform) {
+        if (isMockPlatform(platform)) {
+            return null;
+        }
         return platform == PayPlatform.WECHAT_PAY ? trimToNull(weChatPayProperties.getMerchantId()) : null;
     }
 
     private String resolveNotifyUrl(PayPlatform platform) {
+        if (isMockPlatform(platform)) {
+            return MockPaymentConstants.NOTIFY_URL;
+        }
         return platform == PayPlatform.WECHAT_PAY ? trimToNull(weChatPayProperties.getNotifyUrl()) : null;
+    }
+
+    private String resolveMerchantCode(PayPlatform platform) {
+        if (isMockPlatform(platform)) {
+            return MockPaymentConstants.MERCHANT_CODE;
+        }
+        return platform.getCode();
+    }
+
+    private boolean isMockPlatform(PayPlatform platform) {
+        return platform == PayPlatform.WECHAT_PAY && payProperties.isMockProvider();
+    }
+
+    private boolean isMockPaymentOrder(BizPaymentOrder paymentOrder) {
+        return MockPaymentConstants.MERCHANT_CODE.equalsIgnoreCase(paymentOrder.getMerchantCode());
+    }
+
+    private String resolvePaymentProvider(BizPaymentOrder paymentOrder) {
+        return isMockPaymentOrder(paymentOrder) ? MockPaymentConstants.PROVIDER : "WECHAT";
     }
 
     private String trimToNull(String value) {

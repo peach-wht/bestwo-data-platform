@@ -2,31 +2,27 @@ package com.bestwo.dataplatform.order.dto;
 
 import java.time.Instant;
 
-public class OrderPrepayResponse {
+public class MockPaymentQueryResponse {
 
-    private String orderId;
-    private String orderNo;
-    private String paymentOrderId;
     private String paymentOrderNo;
+    private String orderNo;
+    private String status;
     private String platform;
     private String tradeType;
-    private String status;
-    private String codeUrl;
     private String paymentProvider;
     private Boolean mockMode;
     private String mockPayToken;
     private String mockPayUrl;
     private String channelOrderNo;
-    private String channelPrepayId;
-    private Instant expireAt;
-    private Instant createdAt;
+    private Instant successTime;
+    private String failMessage;
 
-    public String getOrderId() {
-        return orderId;
+    public String getPaymentOrderNo() {
+        return paymentOrderNo;
     }
 
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
+    public void setPaymentOrderNo(String paymentOrderNo) {
+        this.paymentOrderNo = paymentOrderNo;
     }
 
     public String getOrderNo() {
@@ -37,20 +33,12 @@ public class OrderPrepayResponse {
         this.orderNo = orderNo;
     }
 
-    public String getPaymentOrderId() {
-        return paymentOrderId;
+    public String getStatus() {
+        return status;
     }
 
-    public void setPaymentOrderId(String paymentOrderId) {
-        this.paymentOrderId = paymentOrderId;
-    }
-
-    public String getPaymentOrderNo() {
-        return paymentOrderNo;
-    }
-
-    public void setPaymentOrderNo(String paymentOrderNo) {
-        this.paymentOrderNo = paymentOrderNo;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getPlatform() {
@@ -67,22 +55,6 @@ public class OrderPrepayResponse {
 
     public void setTradeType(String tradeType) {
         this.tradeType = tradeType;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getCodeUrl() {
-        return codeUrl;
-    }
-
-    public void setCodeUrl(String codeUrl) {
-        this.codeUrl = codeUrl;
     }
 
     public String getPaymentProvider() {
@@ -125,27 +97,19 @@ public class OrderPrepayResponse {
         this.channelOrderNo = channelOrderNo;
     }
 
-    public String getChannelPrepayId() {
-        return channelPrepayId;
+    public Instant getSuccessTime() {
+        return successTime;
     }
 
-    public void setChannelPrepayId(String channelPrepayId) {
-        this.channelPrepayId = channelPrepayId;
+    public void setSuccessTime(Instant successTime) {
+        this.successTime = successTime;
     }
 
-    public Instant getExpireAt() {
-        return expireAt;
+    public String getFailMessage() {
+        return failMessage;
     }
 
-    public void setExpireAt(Instant expireAt) {
-        this.expireAt = expireAt;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
+    public void setFailMessage(String failMessage) {
+        this.failMessage = failMessage;
     }
 }

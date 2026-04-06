@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HexFormat;
 import java.util.UUID;
 
 public final class OrderNoGenerator {
@@ -33,6 +34,16 @@ public final class OrderNoGenerator {
 
     public static String generateNotifyLogId() {
         return "NTF" + LocalDateTime.now(ZONE_ID).format(ORDER_NO_FORMATTER) + nextDigits(6);
+    }
+
+    public static String generateMockPayToken() {
+        byte[] bytes = new byte[8];
+        RANDOM.nextBytes(bytes);
+        return "mock_" + HexFormat.of().formatHex(bytes);
+    }
+
+    public static String generateMockChannelOrderNo() {
+        return "MOCK" + LocalDateTime.now(ZONE_ID).format(ORDER_NO_FORMATTER) + nextDigits(6);
     }
 
     private static String nextDigits(int length) {

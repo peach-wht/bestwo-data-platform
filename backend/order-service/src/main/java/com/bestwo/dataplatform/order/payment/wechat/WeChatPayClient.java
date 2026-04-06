@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
-@ConditionalOnProperty(prefix = "bestwo.pay.wechat", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "bestwo.pay", name = "provider", havingValue = "WECHAT")
 public class WeChatPayClient implements PayClient {
 
     private final WeChatPayProperties properties;
@@ -141,7 +141,8 @@ public class WeChatPayClient implements PayClient {
             amountFromJson(payload.path("amount").path("payer_total")),
             parseTime(text(payload, "success_time")),
             notifyId,
-            payload.toString()
+            payload.toString(),
+            text(payload, "trade_state_desc")
         );
     }
 

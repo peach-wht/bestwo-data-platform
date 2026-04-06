@@ -112,10 +112,34 @@ export interface OrderPrepayResponse {
   tradeType?: string
   status?: string
   codeUrl?: string
+  paymentProvider?: string
+  mockMode?: boolean
+  mockPayToken?: string
+  mockPayUrl?: string
   channelOrderNo?: string
   channelPrepayId?: string
   expireAt?: string
   createdAt?: string
+}
+
+export interface MockPaymentActionRequest {
+  operator?: string
+  reason?: string
+}
+
+export interface MockPaymentQueryResponse {
+  paymentOrderNo: string
+  orderNo: string
+  status?: string
+  platform?: string
+  tradeType?: string
+  paymentProvider?: string
+  mockMode?: boolean
+  mockPayToken?: string
+  mockPayUrl?: string
+  channelOrderNo?: string
+  successTime?: string
+  failMessage?: string
 }
 
 export const createOrder = (data: CreateOrderRequest) =>
@@ -129,3 +153,12 @@ export const getOrderDetail = (id: string) =>
 
 export const prepayOrder = (id: string) =>
   http.post<ApiResponse<OrderPrepayResponse>>(`/orders/${id}/pay`)
+
+export const getMockPayment = (paymentOrderNo: string) =>
+  http.get<ApiResponse<MockPaymentQueryResponse>>(`/pay/mock-payments/${paymentOrderNo}`)
+
+export const mockPaymentSuccess = (paymentOrderNo: string, data?: MockPaymentActionRequest) =>
+  http.post<ApiResponse<MockPaymentQueryResponse>>(`/pay/mock-payments/${paymentOrderNo}/success`, data ?? {})
+
+export const mockPaymentFail = (paymentOrderNo: string, data?: MockPaymentActionRequest) =>
+  http.post<ApiResponse<MockPaymentQueryResponse>>(`/pay/mock-payments/${paymentOrderNo}/fail`, data ?? {})

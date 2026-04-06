@@ -81,6 +81,7 @@ public class SecurityConfig {
                 .pathMatchers("/health", "/api/health").permitAll()
                 .pathMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .pathMatchers(HttpMethod.POST, "/api/pay/wechat/notify").permitAll()
+                .pathMatchers(HttpMethod.POST, "/api/pay/mock/notify").permitAll()
                 .anyExchange().authenticated()
             )
             .exceptionHandling(exceptionHandlingSpec -> exceptionHandlingSpec

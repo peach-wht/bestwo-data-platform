@@ -13,5 +13,6 @@ public record PayNotifyResult(
     Long amountFen,
     Instant paidAt,
     String notifyId,
-    String rawBody
+    String rawBody,
+    String failMessage
 ) {}
