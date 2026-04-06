@@ -1,12 +1,20 @@
 package com.bestwo.dataplatform.order.domain.model;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.bestwo.dataplatform.order.domain.enums.PayPlatform;
 import com.bestwo.dataplatform.order.domain.enums.PayTradeType;
 import com.bestwo.dataplatform.order.domain.enums.PaymentOrderStatus;
+import com.bestwo.dataplatform.order.mybatis.JsonbStringTypeHandler;
 import java.time.Instant;
 
+@TableName(value = "biz_payment_order", autoResultMap = true)
 public class BizPaymentOrder {
 
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
     private String paymentOrderId;
     private String paymentOrderNo;
@@ -35,7 +43,9 @@ public class BizPaymentOrder {
     private Instant successTime;
     private Instant closedTime;
     private Instant lastNotifyTime;
+    @TableField(typeHandler = JsonbStringTypeHandler.class)
     private String extJson;
+    @Version
     private Integer version;
     private String createdBy;
     private String updatedBy;

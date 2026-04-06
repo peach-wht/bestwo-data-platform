@@ -4,3 +4,18 @@ server:
 spring:
   application:
     name: order-service
+  datasource:
+    # Local debug uses the PostgreSQL SSH tunnel on 127.0.0.1:5432.
+    # In k8s, override ORDER_DB_HOST to postgres.infra.svc.cluster.local.
+    url: jdbc:postgresql://${ORDER_DB_HOST:127.0.0.1}:${ORDER_DB_PORT:5432}/${ORDER_DB_NAME:bestwo_app}
+    username: ${ORDER_DB_USERNAME:bestwo}
+    password: ${ORDER_DB_PASSWORD:Bestwo@123}
+    driver-class-name: org.postgresql.Driver
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.bestwo.dataplatform.order: INFO

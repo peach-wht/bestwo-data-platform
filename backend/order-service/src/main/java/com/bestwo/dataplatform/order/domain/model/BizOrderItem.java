@@ -1,9 +1,16 @@
 package com.bestwo.dataplatform.order.domain.model;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.bestwo.dataplatform.order.mybatis.JsonbStringTypeHandler;
 import java.time.Instant;
 
+@TableName(value = "biz_order_item", autoResultMap = true)
 public class BizOrderItem {
 
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
     private String orderItemId;
     private String orderId;
@@ -26,6 +33,7 @@ public class BizOrderItem {
     private Long refundAmountFen;
     private String itemStatus;
     private String remark;
+    @TableField(typeHandler = JsonbStringTypeHandler.class)
     private String extJson;
     private Instant createdAt;
     private Instant updatedAt;

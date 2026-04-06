@@ -1,12 +1,19 @@
 package com.bestwo.dataplatform.order.domain.model;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.bestwo.dataplatform.order.domain.enums.PayNotifyProcessStatus;
 import com.bestwo.dataplatform.order.domain.enums.PayNotifyType;
 import com.bestwo.dataplatform.order.domain.enums.PayPlatform;
+import com.bestwo.dataplatform.order.mybatis.JsonbStringTypeHandler;
 import java.time.Instant;
 
+@TableName(value = "biz_payment_notify_log", autoResultMap = true)
 public class BizPaymentNotifyLog {
 
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
     private String notifyLogId;
     private String notifyId;
@@ -20,6 +27,7 @@ public class BizPaymentNotifyLog {
     private String eventType;
     private String eventStatus;
     private String summary;
+    @TableField(typeHandler = JsonbStringTypeHandler.class)
     private String requestHeadersJson;
     private String requestBody;
     private String encryptType;
@@ -32,6 +40,7 @@ public class BizPaymentNotifyLog {
     private String processMessage;
     private Instant processedAt;
     private Instant receivedAt;
+    @TableField(typeHandler = JsonbStringTypeHandler.class)
     private String extJson;
 
     public PayPlatform getPlatformEnum() {

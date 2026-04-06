@@ -41,5 +41,16 @@ Details:
 
 Typical local config:
 
-- `spring.datasource.host=127.0.0.1`
-- `spring.datasource.port=5432`
+- `ORDER_DB_HOST=127.0.0.1`
+- `ORDER_DB_PORT=5432`
+- `ORDER_DB_NAME=bestwo_app`
+- `ORDER_DB_USERNAME=bestwo`
+- `ORDER_DB_PASSWORD=Bestwo@123`
+
+Typical k8s config:
+
+- `ORDER_DB_HOST=postgres.infra.svc.cluster.local`
+- `ORDER_DB_PORT=5432`
+- `ORDER_DB_NAME=bestwo_app`
+- `ORDER_DB_USERNAME=bestwo`
+- `ORDER_DB_PASSWORD=Bestwo@123`
