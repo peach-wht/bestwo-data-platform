@@ -29,6 +29,16 @@ pipeline {
             defaultValue: 'warehouse-service',
             description: 'Container name inside the Deployment.'
         )
+        string(
+            name: 'SERVICE_MANIFEST',
+            defaultValue: '',
+            description: 'Optional Service manifest path. Leave empty to skip kubectl apply.'
+        )
+        string(
+            name: 'DEPLOYMENT_MANIFEST',
+            defaultValue: '',
+            description: 'Optional Deployment manifest path. Leave empty to skip kubectl apply.'
+        )
     }
 
     options {
@@ -124,8 +134,19 @@ pipeline {
                 sh """
                     set -eu
 
-                    echo '=== Apply Service ==='
-                    kubectl -n ${params.NAMESPACE} apply -f deploy/k8s/warehouse-service-service.yaml
+                    if [ -n "${params.SERVICE_MANIFEST}" ]; then
+                      echo '=== Apply Service Manifest ==='
+                      kubectl -n ${params.NAMESPACE} apply -f ${params.SERVICE_MANIFEST}
+                    else
+                      echo '=== Skip Service Manifest ==='
+                    fi
+
+                    if [ -n "${params.DEPLOYMENT_MANIFEST}" ]; then
+                      echo '=== Apply Deployment Manifest ==='
+                      kubectl -n ${params.NAMESPACE} apply -f ${params.DEPLOYMENT_MANIFEST}
+                    else
+                      echo '=== Skip Deployment Manifest ==='
+                    fi
 
                     echo '=== Update Deployment Image ==='
                     kubectl -n ${params.NAMESPACE} set image deployment/${params.DEPLOYMENT_NAME} ${params.CONTAINER_NAME}=${FULL_IMAGE}
@@ -142,10 +163,10 @@ pipeline {
 
     post {
         success {
-            echo "warehouse-service deployment succeeded: ${env.FULL_IMAGE}"
+            echo "${params.SERVICE_NAME} deployment succeeded: ${env.FULL_IMAGE}"
         }
         failure {
-            echo 'warehouse-service deployment failed. Check the stage logs above to locate the issue.'
+            echo "${params.SERVICE_NAME} deployment failed. Check the stage logs above to locate the issue."
         }
     }
 }
