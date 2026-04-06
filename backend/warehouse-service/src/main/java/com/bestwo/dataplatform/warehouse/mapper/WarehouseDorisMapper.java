@@ -69,6 +69,9 @@ public interface WarehouseDorisMapper extends BaseMapper<OdsWxOrderEntity> {
 
     List<SyncJobLogResponse> queryLatestSyncJobLogs(@Param("jobCode") String jobCode, @Param("limit") Integer limit);
 
+    @Select("SELECT COUNT(1) FROM ${tableName}")
+    Long countRows(@Param("tableName") String tableName);
+
     void executeSql(@Param("sql") String sql);
 
     default List<Map<String, Object>> queryTestOrders() {
