@@ -22,30 +22,83 @@ const trendList = ref<PayTrendItem[]>([])
 const jobLogs = ref<JobExecutionLogItem[]>([])
 const alerts = ref<AlertRecordItem[]>([])
 
+const resolveApiMessage = (error: unknown, fallbackMessage: string) => resolveErrorMessage(error, fallbackMessage)
+const unwrapResult = <T>(response: { code: number; message?: string; msg?: string; data: T }, fallbackMessage: string) => {
+  try {
+    return ensureApiSuccess(response, fallbackMessage)
+  } catch (error) {
+    throw new Error(resolveApiMessage(error, fallbackMessage))
+  }
+}
+
 const loadDashboard = async () => {
   loading.value = true
   errorMessage.value = ''
 
-  try {
-    const { startDate, endDate } = getDefaultDateRange()
-    const [overviewResponse, trendResponse, logResponse, alertResponse] = await Promise.all([
-      getPayOverview({ startDate, endDate }),
-      getPayTrend({ startDate, endDate }),
-      getJobLogs({ limit: 6 }),
-      getAlertRecords({ alertStatus: 'OPEN', limit: 6 })
-    ])
+  const { startDate, endDate } = getDefaultDateRange()
+  const results = await Promise.allSettled([
+    getPayOverview({ startDate, endDate }),
+    getPayTrend({ startDate, endDate }),
+    getJobLogs({ limit: 6 }),
+    getAlertRecords({ alertStatus: 'OPEN', limit: 6 })
+  ])
 
-    overview.value = ensureApiSuccess(overviewResponse, '加载支付概览失败')
-    trendList.value = ensureApiSuccess(trendResponse, '加载支付趋势失败') ?? []
-    jobLogs.value = ensureApiSuccess(logResponse, '加载任务日志失败') ?? []
-    alerts.value = ensureApiSuccess(alertResponse, '加载告警记录失败') ?? []
-  } catch (error) {
-    const message = resolveErrorMessage(error, '仪表盘加载失败，请检查网关和数仓服务状态')
-    errorMessage.value = message
-    ElMessage.error(message)
-  } finally {
-    loading.value = false
+  const errors: string[] = []
+
+  if (results[0].status === 'fulfilled') {
+    try {
+      overview.value = unwrapResult(results[0].value, '加载支付概览失败')
+    } catch (error) {
+      overview.value = null
+      errors.push(resolveApiMessage(error, '加载支付概览失败'))
+    }
+  } else {
+    overview.value = null
+    errors.push(resolveApiMessage(results[0].reason, '加载支付概览失败'))
   }
+
+  if (results[1].status === 'fulfilled') {
+    try {
+      trendList.value = unwrapResult(results[1].value, '加载支付趋势失败') ?? []
+    } catch (error) {
+      trendList.value = []
+      errors.push(resolveApiMessage(error, '加载支付趋势失败'))
+    }
+  } else {
+    trendList.value = []
+    errors.push(resolveApiMessage(results[1].reason, '加载支付趋势失败'))
+  }
+
+  if (results[2].status === 'fulfilled') {
+    try {
+      jobLogs.value = unwrapResult(results[2].value, '加载任务日志失败') ?? []
+    } catch (error) {
+      jobLogs.value = []
+      errors.push(resolveApiMessage(error, '加载任务日志失败'))
+    }
+  } else {
+    jobLogs.value = []
+    errors.push(resolveApiMessage(results[2].reason, '加载任务日志失败'))
+  }
+
+  if (results[3].status === 'fulfilled') {
+    try {
+      alerts.value = unwrapResult(results[3].value, '加载告警记录失败') ?? []
+    } catch (error) {
+      alerts.value = []
+      errors.push(resolveApiMessage(error, '加载告警记录失败'))
+    }
+  } else {
+    alerts.value = []
+    errors.push(resolveApiMessage(results[3].reason, '加载告警记录失败'))
+  }
+
+  if (errors.length > 0) {
+    errorMessage.value = errors.join('；')
+    ElMessage.error(errorMessage.value)
+  }
+
+  loading.value = false
 }
 
 const getStatusTagType = (status?: string | null) => {

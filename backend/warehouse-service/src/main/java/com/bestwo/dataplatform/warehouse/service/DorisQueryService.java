@@ -84,25 +84,42 @@ public class DorisQueryService {
     }
 
     public PayOverviewResponse queryPayOverview(PayOverviewQueryRequest request) {
-        if (!request.hasDateRange() && tableExists("ads_pay_dashboard_overview")) {
-            PayOverviewResponse response = warehouseDorisMapper.queryAdsPayOverview("ALL");
-            if (response != null) {
-                return normalizePayOverview(response);
+        try {
+            if (!request.hasDateRange() && tableExists("ads_pay_dashboard_overview")) {
+                PayOverviewResponse response = warehouseDorisMapper.queryAdsPayOverview("ALL");
+                if (response != null) {
+                    return normalizePayOverview(response);
+                }
             }
-        }
 
-        PayTrendTableSpec tableSpec = resolvePayTrendTableSpec();
-        PayOverviewResponse response = warehouseDorisMapper.queryPayOverviewFromTrend(
-            tableSpec,
-            request.getStartDate(),
-            request.getEndDate()
-        );
-        return normalizePayOverview(response);
+            if (!hasPayTrendSourceTable()) {
+                log.warn("no available pay overview source table found in Doris, fallback to empty overview");
+                return normalizePayOverview(null);
+            }
+
+            PayTrendTableSpec tableSpec = resolvePayTrendTableSpec();
+            PayOverviewResponse response = warehouseDorisMapper.queryPayOverviewFromTrend(
+                tableSpec,
+                request.getStartDate(),
+                request.getEndDate()
+            );
+            return normalizePayOverview(response);
+        } catch (RuntimeException exception) {
+            throw new BusinessException(resolveExceptionMessage("failed to query pay overview from Doris", exception));
+        }
     }
 
     public List<PayTrendResponse> queryPayTrend(SummaryQueryRequest request) {
-        PayTrendTableSpec tableSpec = resolvePayTrendTableSpec();
-        return warehouseDorisMapper.queryPayTrend(tableSpec, request.getStartDate(), request.getEndDate());
+        try {
+            if (!hasPayTrendSourceTable()) {
+                log.warn("no available pay trend table found in Doris, fallback to empty trend list");
+                return Collections.emptyList();
+            }
+            PayTrendTableSpec tableSpec = resolvePayTrendTableSpec();
+            return warehouseDorisMapper.queryPayTrend(tableSpec, request.getStartDate(), request.getEndDate());
+        } catch (RuntimeException exception) {
+            throw new BusinessException(resolveExceptionMessage("failed to query pay trend from Doris", exception));
+        }
     }
 
     public List<SyncJobLogResponse> queryRecentJobLogs(String jobCode, int limit) {
@@ -371,6 +388,22 @@ public class DorisQueryService {
 
     private boolean tableExists(String tableName) {
         return !getTableColumns(tableName).isEmpty();
+    }
+
+    private boolean hasPayTrendSourceTable() {
+        return tableExists("dws_wx_pay_trade_day") || tableExists("ads_order_day_summary");
+    }
+
+    private String resolveExceptionMessage(String fallbackMessage, Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && !message.isBlank()) {
+                return fallbackMessage + ": " + message;
+            }
+            current = current.getCause();
+        }
+        return fallbackMessage;
     }
 
     private PayOverviewResponse normalizePayOverview(PayOverviewResponse response) {
