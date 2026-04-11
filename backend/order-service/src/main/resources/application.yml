@@ -7,7 +7,7 @@ spring:
   datasource:
     # Local debug uses the PostgreSQL SSH tunnel on 127.0.0.1:5432.
     # In k8s, override ORDER_DB_HOST to postgres.infra.svc.cluster.local.
-    url: jdbc:postgresql://${ORDER_DB_HOST:127.0.0.1}:${ORDER_DB_PORT:5432}/${ORDER_DB_NAME:bestwo_app}
+    url: jdbc:postgresql://${ORDER_DB_HOST:127.0.0.1}:${ORDER_DB_PORT:5432}/${ORDER_DB_NAME:bestwo_app}?currentSchema=${ORDER_DB_SCHEMA:order_center}
     username: ${ORDER_DB_USERNAME:bestwo}
     password: ${ORDER_DB_PASSWORD:Bestwo@123}
     driver-class-name: org.postgresql.Driver

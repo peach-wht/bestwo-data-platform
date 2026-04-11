@@ -8,11 +8,16 @@ public class SourcePostgresProperties {
     private String host;
     private Integer port;
     private String database;
+    private String schema;
     private String username;
     private String password;
 
     public String getJdbcUrl() {
-        return "jdbc:postgresql://" + host + ":" + port + "/" + database;
+        String jdbcUrl = "jdbc:postgresql://" + host + ":" + port + "/" + database;
+        if (schema == null || schema.isBlank()) {
+            return jdbcUrl;
+        }
+        return jdbcUrl + "?currentSchema=" + schema;
     }
 
     public String getHost() {
@@ -41,6 +46,14 @@ public class SourcePostgresProperties {
 
     public String getUsername() {
         return username;
+    }
+
+    public String getSchema() {
+        return schema;
+    }
+
+    public void setSchema(String schema) {
+        this.schema = schema;
     }
 
     public void setUsername(String username) {

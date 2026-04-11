@@ -19,7 +19,7 @@ public interface SourceMetadataMapper {
         "  ordinal_position AS ordinalPosition,",
         "  NULL AS columnComment",
         "FROM information_schema.columns",
-        "WHERE table_schema = 'public'",
+        "WHERE table_schema = current_schema()",
         "  AND table_name IN",
         "  <foreach collection='tableNames' item='tableName' open='(' separator=',' close=')'>",
         "    #{tableName}",

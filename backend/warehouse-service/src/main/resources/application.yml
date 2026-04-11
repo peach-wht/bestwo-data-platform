@@ -18,6 +18,7 @@ source-db:
   host: ${ORDER_DB_HOST:127.0.0.1}
   port: ${ORDER_DB_PORT:5432}
   database: ${ORDER_DB_NAME:bestwo_app}
+  schema: ${ORDER_DB_SCHEMA:order_center}
   username: ${ORDER_DB_USERNAME:bestwo}
   password: ${ORDER_DB_PASSWORD:Bestwo@123}
 
