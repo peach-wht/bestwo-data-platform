@@ -4,31 +4,28 @@ public class SummaryTableSpec {
 
     private final String tableName;
     private final String statDateColumn;
-    private final String statDateSelect;
-    private final String orderCountSelect;
-    private final String paidOrderCountSelect;
-    private final String totalAmountSelect;
-    private final String paidAmountSelect;
-    private final String refundAmountSelect;
+    private final String orderCountExpression;
+    private final String paidOrderCountExpression;
+    private final String totalAmountExpression;
+    private final String paidAmountExpression;
+    private final String refundAmountExpression;
 
     public SummaryTableSpec(
         String tableName,
         String statDateColumn,
-        String statDateSelect,
-        String orderCountSelect,
-        String paidOrderCountSelect,
-        String totalAmountSelect,
-        String paidAmountSelect,
-        String refundAmountSelect
+        String orderCountExpression,
+        String paidOrderCountExpression,
+        String totalAmountExpression,
+        String paidAmountExpression,
+        String refundAmountExpression
     ) {
         this.tableName = tableName;
         this.statDateColumn = statDateColumn;
-        this.statDateSelect = statDateSelect;
-        this.orderCountSelect = orderCountSelect;
-        this.paidOrderCountSelect = paidOrderCountSelect;
-        this.totalAmountSelect = totalAmountSelect;
-        this.paidAmountSelect = paidAmountSelect;
-        this.refundAmountSelect = refundAmountSelect;
+        this.orderCountExpression = orderCountExpression;
+        this.paidOrderCountExpression = paidOrderCountExpression;
+        this.totalAmountExpression = totalAmountExpression;
+        this.paidAmountExpression = paidAmountExpression;
+        this.refundAmountExpression = refundAmountExpression;
     }
 
     public String getTableName() {
@@ -39,27 +36,23 @@ public class SummaryTableSpec {
         return statDateColumn;
     }
 
-    public String getStatDateSelect() {
-        return statDateSelect;
+    public String getOrderCountExpression() {
+        return orderCountExpression;
     }
 
-    public String getOrderCountSelect() {
-        return orderCountSelect;
+    public String getPaidOrderCountExpression() {
+        return paidOrderCountExpression;
     }
 
-    public String getPaidOrderCountSelect() {
-        return paidOrderCountSelect;
+    public String getTotalAmountExpression() {
+        return totalAmountExpression;
     }
 
-    public String getTotalAmountSelect() {
-        return totalAmountSelect;
+    public String getPaidAmountExpression() {
+        return paidAmountExpression;
     }
 
-    public String getPaidAmountSelect() {
-        return paidAmountSelect;
-    }
-
-    public String getRefundAmountSelect() {
-        return refundAmountSelect;
+    public String getRefundAmountExpression() {
+        return refundAmountExpression;
     }
 }

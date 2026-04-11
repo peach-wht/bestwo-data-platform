@@ -36,15 +36,16 @@
 
     <select id="queryDaySummary" resultType="com.bestwo.dataplatform.warehouse.dto.OrderSummaryDayResponse">
         SELECT
-            ${tableSpec.statDateSelect},
-            ${tableSpec.orderCountSelect},
-            ${tableSpec.paidOrderCountSelect},
-            ${tableSpec.totalAmountSelect},
-            ${tableSpec.paidAmountSelect},
-            ${tableSpec.refundAmountSelect}
+            CAST(${tableSpec.statDateColumn} AS CHAR) AS statDate,
+            COALESCE(SUM(${tableSpec.orderCountExpression}), 0) AS orderCount,
+            COALESCE(SUM(${tableSpec.paidOrderCountExpression}), 0) AS paidOrderCount,
+            COALESCE(SUM(${tableSpec.totalAmountExpression}), 0) AS totalAmount,
+            COALESCE(SUM(${tableSpec.paidAmountExpression}), 0) AS paidAmount,
+            COALESCE(SUM(${tableSpec.refundAmountExpression}), 0) AS refundAmount
         FROM ${tableSpec.tableName}
         WHERE ${tableSpec.statDateColumn} <![CDATA[>=]]> #{startDate}
           AND ${tableSpec.statDateColumn} <![CDATA[<=]]> #{endDate}
+        GROUP BY ${tableSpec.statDateColumn}
         ORDER BY ${tableSpec.statDateColumn} ASC
     </select>
 
@@ -83,17 +84,25 @@
     <select id="queryPayTrend" resultType="com.bestwo.dataplatform.warehouse.dto.PayTrendResponse">
         SELECT
             CAST(${tableSpec.statDateColumn} AS CHAR) AS statDate,
-            ${tableSpec.orderCountExpression} AS orderCount,
-            ${tableSpec.paidOrderCountExpression} AS paidOrderCount,
-            ${tableSpec.unpaidOrderCountExpression} AS unpaidOrderCount,
-            ${tableSpec.closedOrderCountExpression} AS closedOrderCount,
-            ${tableSpec.totalAmountExpression} AS totalAmount,
-            ${tableSpec.paidAmountExpression} AS paidAmount,
-            ${tableSpec.refundAmountExpression} AS refundAmount,
-            ${tableSpec.paySuccessRateExpression} AS paySuccessRate
+            COALESCE(SUM(${tableSpec.orderCountExpression}), 0) AS orderCount,
+            COALESCE(SUM(${tableSpec.paidOrderCountExpression}), 0) AS paidOrderCount,
+            COALESCE(SUM(${tableSpec.unpaidOrderCountExpression}), 0) AS unpaidOrderCount,
+            COALESCE(SUM(${tableSpec.closedOrderCountExpression}), 0) AS closedOrderCount,
+            COALESCE(SUM(${tableSpec.totalAmountExpression}), 0) AS totalAmount,
+            COALESCE(SUM(${tableSpec.paidAmountExpression}), 0) AS paidAmount,
+            COALESCE(SUM(${tableSpec.refundAmountExpression}), 0) AS refundAmount,
+            CASE
+                WHEN COALESCE(SUM(${tableSpec.orderCountExpression}), 0) = 0 THEN 0
+                ELSE ROUND(
+                    CAST(COALESCE(SUM(${tableSpec.paidOrderCountExpression}), 0) AS DECIMAL(18, 4))
+                    / COALESCE(SUM(${tableSpec.orderCountExpression}), 0),
+                    4
+                )
+            END AS paySuccessRate
         FROM ${tableSpec.tableName}
         WHERE ${tableSpec.statDateColumn} <![CDATA[>=]]> #{startDate}
           AND ${tableSpec.statDateColumn} <![CDATA[<=]]> #{endDate}
+        GROUP BY ${tableSpec.statDateColumn}
         ORDER BY ${tableSpec.statDateColumn} ASC
     </select>
 

@@ -16,6 +16,20 @@ wuhaotian-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/bestwo/warehouse:${IMAG
 kubectl apply -f deploy/k8s/warehouse-service-secret-example.yaml
 ```
 
+Before applying, replace these keys with real values:
+
+- `doris-host`
+- `doris-port`
+- `doris-database`
+- `doris-username`
+- `doris-password`
+- `order-db-host`
+- `order-db-port`
+- `order-db-name`
+- `order-db-schema`
+- `order-db-username`
+- `order-db-password`
+
 2. Create the registry pull secret:
 
 ```bash

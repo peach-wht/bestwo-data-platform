@@ -165,12 +165,11 @@ public class DorisQueryService {
         return new SummaryTableSpec(
             "ads_order_day_summary",
             statDateColumn,
-            stringSelect(statDateColumn, "statDate"),
-            numericSelect(columns, List.of("order_count", "total_order_count"), "orderCount", true),
-            numericSelect(columns, List.of("paid_order_count", "success_order_count"), "paidOrderCount", false),
-            numericSelect(columns, List.of("total_amount", "order_amount", "total_order_amount"), "totalAmount", false),
-            numericSelect(columns, List.of("paid_amount", "total_paid_amount"), "paidAmount", false),
-            numericSelect(columns, List.of("refund_amount", "total_refund_amount"), "refundAmount", false)
+            numericExpression(columns, List.of("order_count", "total_order_count", "order_cnt"), true),
+            numericExpression(columns, List.of("paid_order_count", "success_order_count", "paid_order_cnt"), false),
+            numericExpression(columns, List.of("total_amount", "order_amount", "total_order_amount"), false),
+            numericExpression(columns, List.of("paid_amount", "total_paid_amount", "total_pay_amount"), false),
+            numericExpression(columns, List.of("refund_amount", "total_refund_amount", "refund_pay_amount"), false)
         );
     }
 
@@ -178,18 +177,18 @@ public class DorisQueryService {
         Set<String> dwsColumns = getTableColumns("dws_wx_pay_trade_day");
         if (!dwsColumns.isEmpty()) {
             String statDateColumn = resolveRequiredColumn(dwsColumns, List.of("stat_date", "dt"), "stat_date");
-            String orderCountExpression = numericExpression(dwsColumns, List.of("order_count"), true);
-            String paidOrderCountExpression = numericExpression(dwsColumns, List.of("paid_order_count"), false);
+            String orderCountExpression = numericExpression(dwsColumns, List.of("order_count", "order_cnt"), true);
+            String paidOrderCountExpression = numericExpression(dwsColumns, List.of("paid_order_count", "paid_order_cnt"), false);
             return new PayTrendTableSpec(
                 "dws_wx_pay_trade_day",
                 statDateColumn,
                 orderCountExpression,
                 paidOrderCountExpression,
-                numericExpression(dwsColumns, List.of("unpaid_order_count"), false),
-                numericExpression(dwsColumns, List.of("closed_order_count"), false),
-                numericExpression(dwsColumns, List.of("total_amount"), false),
-                numericExpression(dwsColumns, List.of("paid_amount"), false),
-                numericExpression(dwsColumns, List.of("refund_amount"), false),
+                numericExpression(dwsColumns, List.of("unpaid_order_count", "unpaid_order_cnt"), false),
+                numericExpression(dwsColumns, List.of("closed_order_count", "cancelled_order_cnt"), false),
+                numericExpression(dwsColumns, List.of("total_amount", "order_amount", "total_order_amount"), false),
+                numericExpression(dwsColumns, List.of("paid_amount", "total_paid_amount", "total_pay_amount"), false),
+                numericExpression(dwsColumns, List.of("refund_amount", "total_refund_amount", "refund_pay_amount"), false),
                 numericExpression(
                     dwsColumns,
                     List.of("pay_success_rate"),
@@ -206,18 +205,18 @@ public class DorisQueryService {
         }
 
         String statDateColumn = resolveRequiredColumn(adsColumns, List.of("stat_date", "order_date", "dt"), "stat_date");
-        String orderCountExpression = numericExpression(adsColumns, List.of("order_count", "total_order_count"), true);
-        String paidOrderCountExpression = numericExpression(adsColumns, List.of("paid_order_count", "success_order_count"), false);
+        String orderCountExpression = numericExpression(adsColumns, List.of("order_count", "total_order_count", "order_cnt"), true);
+        String paidOrderCountExpression = numericExpression(adsColumns, List.of("paid_order_count", "success_order_count", "paid_order_cnt"), false);
         return new PayTrendTableSpec(
             "ads_order_day_summary",
             statDateColumn,
             orderCountExpression,
             paidOrderCountExpression,
-            "0",
-            "0",
+            numericExpression(adsColumns, List.of("unpaid_order_count", "unpaid_order_cnt"), false),
+            numericExpression(adsColumns, List.of("closed_order_count", "cancelled_order_cnt"), false),
             numericExpression(adsColumns, List.of("total_amount", "order_amount", "total_order_amount"), false),
-            numericExpression(adsColumns, List.of("paid_amount", "total_paid_amount"), false),
-            numericExpression(adsColumns, List.of("refund_amount", "total_refund_amount"), false),
+            numericExpression(adsColumns, List.of("paid_amount", "total_paid_amount", "total_pay_amount"), false),
+            numericExpression(adsColumns, List.of("refund_amount", "total_refund_amount", "refund_pay_amount"), false),
             buildRatioExpression(paidOrderCountExpression, orderCountExpression)
         );
     }
