@@ -17,10 +17,14 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 logging:
+  config: classpath:bestwo-logback-spring.xml
   level:
+    root: INFO
     com.bestwo.dataplatform.order: INFO
 
 bestwo:
+  logging:
+    slow-request-threshold-ms: ${BESTWO_LOG_SLOW_REQUEST_THRESHOLD_MS:1000}
   pay:
     provider: ${PAY_PROVIDER:MOCK}
     wechat:

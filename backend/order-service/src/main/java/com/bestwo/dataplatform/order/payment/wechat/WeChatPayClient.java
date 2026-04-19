@@ -17,10 +17,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import net.logstash.logback.argument.StructuredArguments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -33,6 +37,7 @@ import org.springframework.web.client.RestClient;
 @ConditionalOnProperty(prefix = "bestwo.pay", name = "provider", havingValue = "WECHAT")
 public class WeChatPayClient implements PayClient {
 
+    private static final Logger log = LoggerFactory.getLogger(WeChatPayClient.class);
     private final WeChatPayProperties properties;
     private final WeChatPayRequestSigner requestSigner;
     private final ObjectMapper objectMapper;
@@ -41,12 +46,13 @@ public class WeChatPayClient implements PayClient {
     public WeChatPayClient(
         WeChatPayProperties properties,
         WeChatPayRequestSigner requestSigner,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        RestClient.Builder restClientBuilder
     ) {
         this.properties = properties;
         this.requestSigner = requestSigner;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder()
+        this.restClient = restClientBuilder
             .baseUrl(properties.getBaseUrl())
             .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
             .build();
@@ -67,6 +73,14 @@ public class WeChatPayClient implements PayClient {
         assertSupports(command.platform(), command.tradeType());
         String path = "/v3/pay/transactions/native";
         String requestBody = buildNativePrepayRequest(command);
+        long startedAtNanos = System.nanoTime();
+        log.info("wechat prepay request started {}", StructuredArguments.entries(buildWeChatFields(
+            "wechat_prepay_request_started",
+            command.merchantOrderNo(),
+            command.paymentOrderNo(),
+            null,
+            null
+        )));
         String responseBody = restClient.post()
             .uri(path)
             .contentType(MediaType.APPLICATION_JSON)
@@ -78,6 +92,13 @@ public class WeChatPayClient implements PayClient {
             .body(String.class);
 
         JsonNode json = readJson(responseBody);
+        log.info("wechat prepay request succeeded {}", StructuredArguments.entries(buildWeChatFields(
+            "wechat_prepay_request_succeeded",
+            command.merchantOrderNo(),
+            command.paymentOrderNo(),
+            "durationMs",
+            (System.nanoTime() - startedAtNanos) / 1_000_000L
+        )));
         return new PayPrepayResult(
             PayPlatform.WECHAT_PAY,
             command.tradeType(),
@@ -98,6 +119,7 @@ public class WeChatPayClient implements PayClient {
             throw new BusinessException("merchantOrderNo must not be blank");
         }
         String path = "/v3/pay/transactions/out-trade-no/" + merchantOrderNo + "?mchid=" + properties.getMerchantId();
+        long startedAtNanos = System.nanoTime();
         String responseBody = restClient.get()
             .uri(path)
             .header(HttpHeaders.AUTHORIZATION, requestSigner.buildAuthorization(properties, HttpMethod.GET, path, ""))
@@ -107,6 +129,13 @@ public class WeChatPayClient implements PayClient {
             .body(String.class);
 
         JsonNode json = readJson(responseBody);
+        log.info("wechat pay query succeeded {}", StructuredArguments.entries(buildWeChatFields(
+            "wechat_pay_query_succeeded",
+            merchantOrderNo,
+            paymentOrderNo,
+            "durationMs",
+            (System.nanoTime() - startedAtNanos) / 1_000_000L
+        )));
         return new PayQueryResult(
             PayPlatform.WECHAT_PAY,
             merchantOrderNo,
@@ -251,5 +280,24 @@ public class WeChatPayClient implements PayClient {
             case "NOTPAY", "USERPAYING" -> PaymentOrderStatus.WAIT_PAY;
             default -> PaymentOrderStatus.WAIT_PAY;
         };
+    }
+
+    private Map<String, Object> buildWeChatFields(
+        String event,
+        String merchantOrderNo,
+        String paymentOrderNo,
+        String extraKey,
+        Object extraValue
+    ) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("event", event);
+        fields.put("merchantOrderNo", merchantOrderNo);
+        if (paymentOrderNo != null && !paymentOrderNo.isBlank()) {
+            fields.put("paymentOrderNo", paymentOrderNo);
+        }
+        if (extraKey != null && extraValue != null) {
+            fields.put(extraKey, extraValue);
+        }
+        return fields;
     }
 }

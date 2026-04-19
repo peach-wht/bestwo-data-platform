@@ -25,6 +25,7 @@
         <spring-boot.version>3.3.10</spring-boot.version>
         <spring-cloud.version>2023.0.5</spring-cloud.version>
         <lombok.version>1.18.36</lombok.version>
+        <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
         <postgresql.version>42.7.5</postgresql.version>
         <mysql.version>8.4.0</mysql.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -62,6 +63,11 @@
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
                 <version>${mysql.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback-encoder.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

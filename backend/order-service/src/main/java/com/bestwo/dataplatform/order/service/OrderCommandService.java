@@ -12,6 +12,11 @@ import com.bestwo.dataplatform.order.dto.CreateOrderResponse;
 import com.bestwo.dataplatform.order.mapper.BizOrderMapper;
 import com.bestwo.dataplatform.order.util.OrderNoGenerator;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import net.logstash.logback.argument.StructuredArguments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -19,6 +24,7 @@ import org.springframework.util.StringUtils;
 @Service
 public class OrderCommandService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderCommandService.class);
     private static final String DEFAULT_BIZ_TYPE = "PAYMENT";
     private static final String DEFAULT_ORDER_SOURCE = "ADMIN";
     private static final String DEFAULT_CURRENCY = "CNY";
@@ -92,6 +98,7 @@ public class OrderCommandService {
         response.setPreferredPayPlatform(order.getPreferredPayPlatform());
         response.setPreferredTradeType(order.getPreferredTradeType());
         response.setCreatedAt(order.getCreatedAt());
+        log.info("order created {}", StructuredArguments.entries(buildOrderCreatedFields(order)));
         return response;
     }
 
@@ -114,5 +121,17 @@ public class OrderCommandService {
 
     private String trimToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private Map<String, Object> buildOrderCreatedFields(BizOrder order) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("event", "order_created");
+        fields.put("orderId", order.getOrderId());
+        fields.put("orderNo", order.getOrderNo());
+        fields.put("totalAmountFen", order.getTotalAmountFen());
+        fields.put("payableAmountFen", order.getPayableAmountFen());
+        fields.put("payPlatform", order.getPreferredPayPlatform());
+        fields.put("tradeType", order.getPreferredTradeType());
+        return fields;
     }
 }

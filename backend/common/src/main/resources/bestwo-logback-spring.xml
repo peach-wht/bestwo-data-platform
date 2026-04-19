@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="unknown-service"/>
+    <springProperty scope="context" name="rootLevel" source="logging.level.root" defaultValue="INFO"/>
+
+    <property name="clusterName" value="${BESTWO_CLUSTER_NAME:-bestwo-cluster}"/>
+    <property name="environment" value="${BESTWO_ENV:-local}"/>
+    <property name="instanceId" value="${HOSTNAME:-local-instance}"/>
+    <property name="logDir" value="${BESTWO_LOG_DIR:-logs}"/>
+    <property name="logMaxFileSize" value="${BESTWO_LOG_MAX_FILE_SIZE:-100MB}"/>
+    <property name="logMaxHistory" value="${BESTWO_LOG_MAX_HISTORY_DAYS:-14}"/>
+    <property name="logTotalSizeCap" value="${BESTWO_LOG_TOTAL_SIZE_CAP:-5GB}"/>
+
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"${appName}","cluster":"${clusterName}","environment":"${environment}","instance":"${instanceId}"}</customFields>
+            <includeStructuredArguments>true</includeStructuredArguments>
+            <includeMdc>true</includeMdc>
+            <timeZone>UTC</timeZone>
+        </encoder>
+    </appender>
+
+    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logDir}/${appName}.json.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logDir}/archive/${appName}.%d{yyyy-MM-dd}.%i.json.log.gz</fileNamePattern>
+            <maxFileSize>${logMaxFileSize}</maxFileSize>
+            <maxHistory>${logMaxHistory}</maxHistory>
+            <totalSizeCap>${logTotalSizeCap}</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"${appName}","cluster":"${clusterName}","environment":"${environment}","instance":"${instanceId}"}</customFields>
+            <includeStructuredArguments>true</includeStructuredArguments>
+            <includeMdc>true</includeMdc>
+            <timeZone>UTC</timeZone>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="FILE_JSON"/>
+    </appender>
+
+    <logger name="bestwo.access" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <root level="${rootLevel}">
+        <appender-ref ref="ASYNC_CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </root>
+</configuration>

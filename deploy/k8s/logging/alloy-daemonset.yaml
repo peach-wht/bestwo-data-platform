@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy-logs
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: alloy-logs
+    app.kubernetes.io/part-of: bestwo-data-platform
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alloy-logs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: alloy-logs
+        app.kubernetes.io/part-of: bestwo-data-platform
+    spec:
+      serviceAccountName: alloy-logs
+      containers:
+        - name: alloy
+          image: grafana/alloy:v1.12.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --server.http.listen-addr=0.0.0.0:12345
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: http
+              containerPort: 12345
+          readinessProbe:
+            tcpSocket:
+              port: 12345
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 12345
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-logs-config

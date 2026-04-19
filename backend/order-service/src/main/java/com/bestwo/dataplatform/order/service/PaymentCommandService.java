@@ -23,6 +23,11 @@ import com.bestwo.dataplatform.order.payment.wechat.WeChatPayProperties;
 import com.bestwo.dataplatform.order.util.OrderNoGenerator;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import net.logstash.logback.argument.StructuredArguments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
@@ -30,6 +35,7 @@ import org.springframework.util.StringUtils;
 @Service
 public class PaymentCommandService {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentCommandService.class);
     private static final String DEFAULT_CURRENCY = "CNY";
     private static final String DEFAULT_OPERATOR = "system";
     private static final long DEFAULT_EXPIRE_MINUTES = 120;
@@ -71,17 +77,42 @@ public class PaymentCommandService {
 
         BizPaymentOrder activePaymentOrder = findActivePaymentOrder(order.getOrderId(), platform, tradeType);
         if (activePaymentOrder != null) {
+            log.info("reuse active payment order {}", StructuredArguments.entries(buildPrepayFields(
+                "payment_prepay_reuse",
+                order,
+                activePaymentOrder,
+                clientIp
+            )));
             return toOrderPrepayResponse(order, activePaymentOrder);
         }
 
         BizPaymentOrder paymentOrder = createPrepayingPaymentOrder(order, platform, tradeType, clientIp);
         PayPrepayCommand command = buildPrepayCommand(order, paymentOrder);
+        log.info("payment prepay started {}", StructuredArguments.entries(buildPrepayFields(
+            "payment_prepay_started",
+            order,
+            paymentOrder,
+            clientIp
+        )));
 
         try {
             PayPrepayResult prepayResult = payClient.prepay(command);
-            return finalizePrepaySuccess(order, paymentOrder, prepayResult);
+            OrderPrepayResponse response = finalizePrepaySuccess(order, paymentOrder, prepayResult);
+            log.info("payment prepay succeeded {}", StructuredArguments.entries(buildPrepayFields(
+                "payment_prepay_succeeded",
+                order,
+                paymentOrder,
+                clientIp
+            )));
+            return response;
         } catch (RuntimeException exception) {
             markPaymentOrderFailed(paymentOrder, exception.getMessage());
+            log.error("payment prepay failed {}", StructuredArguments.entries(buildPrepayFields(
+                "payment_prepay_failed",
+                order,
+                paymentOrder,
+                clientIp
+            )), exception);
             throw exception;
         }
     }
@@ -360,5 +391,25 @@ public class PaymentCommandService {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private Map<String, Object> buildPrepayFields(
+        String event,
+        BizOrder order,
+        BizPaymentOrder paymentOrder,
+        String clientIp
+    ) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("event", event);
+        fields.put("orderId", order.getOrderId());
+        fields.put("orderNo", order.getOrderNo());
+        fields.put("paymentOrderId", paymentOrder.getPaymentOrderId());
+        fields.put("paymentOrderNo", paymentOrder.getPaymentOrderNo());
+        fields.put("platform", paymentOrder.getPlatform());
+        fields.put("tradeType", paymentOrder.getTradeType());
+        if (StringUtils.hasText(clientIp)) {
+            fields.put("clientIp", clientIp);
+        }
+        return fields;
     }
 }

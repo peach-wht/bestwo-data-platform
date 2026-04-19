@@ -29,6 +29,10 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: prod
+            - name: BESTWO_CLUSTER_NAME
+              value: bestwo-k3s
+            - name: BESTWO_ENV
+              value: prod
             - name: WAREHOUSE_SERVICE_URL
               value: http://warehouse-service:8083
             - name: ADMIN_USERNAME

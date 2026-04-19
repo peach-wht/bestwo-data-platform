@@ -4,3 +4,13 @@ server:
 spring:
   application:
     name: auth-service
+
+logging:
+  config: classpath:bestwo-logback-spring.xml
+  level:
+    root: INFO
+    com.bestwo.dataplatform.auth: INFO
+
+bestwo:
+  logging:
+    slow-request-threshold-ms: ${BESTWO_LOG_SLOW_REQUEST_THRESHOLD_MS:1000}

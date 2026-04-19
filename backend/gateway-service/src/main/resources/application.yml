@@ -57,10 +57,14 @@ spring:
               - "*"
 
 logging:
+  config: classpath:bestwo-logback-spring.xml
   level:
+    root: INFO
     com.bestwo.dataplatform.gateway: INFO
 
 bestwo:
+  logging:
+    slow-request-threshold-ms: ${BESTWO_LOG_SLOW_REQUEST_THRESHOLD_MS:1000}
   auth:
     admin:
       username: ${ADMIN_USERNAME:admin}

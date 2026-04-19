@@ -27,6 +27,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.logstash.logback.argument.StructuredArguments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +38,7 @@ import org.springframework.util.StringUtils;
 @Service
 public class PaymentNotifyService {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentNotifyService.class);
     private static final String DEFAULT_OPERATOR = "system";
     private static final String CHANNEL_FAIL_CODE = "CHANNEL_NOTIFY_FAILED";
     private static final String CHANNEL_CLOSED_CODE = "CHANNEL_CLOSED";
@@ -71,6 +75,13 @@ public class PaymentNotifyService {
         Map<String, String> headers = flattenHeaders(httpHeaders);
         JsonNode envelope = parseJson(requestBody);
         String notifyId = text(envelope, "id");
+        log.info("wechat pay notify received {}", StructuredArguments.entries(buildNotifyFields(
+            "wechat_pay_notify_received",
+            notifyId,
+            null,
+            null,
+            null
+        )));
 
         BizPaymentNotifyLog notifyLog = null;
         if (StringUtils.hasText(notifyId)) {
@@ -104,11 +115,25 @@ public class PaymentNotifyService {
             notifyLog.setProcessedAt(Instant.now());
 
             updateNotifyLog(notifyLog);
+            log.info("wechat pay notify processed {}", StructuredArguments.entries(buildNotifyFields(
+                "wechat_pay_notify_processed",
+                notifyLog.getNotifyId(),
+                notifyLog.getOrderNo(),
+                notifyLog.getPaymentOrderNo(),
+                notifyLog.getProcessStatus()
+            )));
         } catch (RuntimeException exception) {
             notifyLog.setProcessStatus(PayNotifyProcessStatus.FAILED.getCode());
             notifyLog.setProcessMessage(truncate(exception.getMessage(), 255));
             notifyLog.setProcessedAt(Instant.now());
             updateNotifyLog(notifyLog);
+            log.error("wechat pay notify failed {}", StructuredArguments.entries(buildNotifyFields(
+                "wechat_pay_notify_failed",
+                notifyLog.getNotifyId(),
+                notifyLog.getOrderNo(),
+                notifyLog.getPaymentOrderNo(),
+                notifyLog.getProcessStatus()
+            )), exception);
             throw exception;
         }
     }
@@ -119,6 +144,13 @@ public class PaymentNotifyService {
         Map<String, String> headers = Map.of("X-Mock-Provider", MockPaymentConstants.PROVIDER);
         JsonNode envelope = parseJson(requestBody);
         String notifyId = firstNonBlank(text(envelope, "notifyNo"), text(envelope, "notifyId"), text(envelope, "notify_id"));
+        log.info("mock pay notify received {}", StructuredArguments.entries(buildNotifyFields(
+            "mock_pay_notify_received",
+            notifyId,
+            null,
+            null,
+            null
+        )));
 
         BizPaymentNotifyLog notifyLog = null;
         if (StringUtils.hasText(notifyId)) {
@@ -155,11 +187,25 @@ public class PaymentNotifyService {
             notifyLog.setProcessedAt(Instant.now());
 
             updateNotifyLog(notifyLog);
+            log.info("mock pay notify processed {}", StructuredArguments.entries(buildNotifyFields(
+                "mock_pay_notify_processed",
+                notifyLog.getNotifyId(),
+                notifyLog.getOrderNo(),
+                notifyLog.getPaymentOrderNo(),
+                notifyLog.getProcessStatus()
+            )));
         } catch (RuntimeException exception) {
             notifyLog.setProcessStatus(PayNotifyProcessStatus.FAILED.getCode());
             notifyLog.setProcessMessage(truncate(exception.getMessage(), 255));
             notifyLog.setProcessedAt(Instant.now());
             updateNotifyLog(notifyLog);
+            log.error("mock pay notify failed {}", StructuredArguments.entries(buildNotifyFields(
+                "mock_pay_notify_failed",
+                notifyLog.getNotifyId(),
+                notifyLog.getOrderNo(),
+                notifyLog.getPaymentOrderNo(),
+                notifyLog.getProcessStatus()
+            )), exception);
             throw exception;
         }
     }
@@ -639,6 +685,30 @@ public class PaymentNotifyService {
             }
         }
         return null;
+    }
+
+    private Map<String, Object> buildNotifyFields(
+        String event,
+        String notifyId,
+        String orderNo,
+        String paymentOrderNo,
+        String processStatus
+    ) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("event", event);
+        if (StringUtils.hasText(notifyId)) {
+            fields.put("notifyId", notifyId);
+        }
+        if (StringUtils.hasText(orderNo)) {
+            fields.put("orderNo", orderNo);
+        }
+        if (StringUtils.hasText(paymentOrderNo)) {
+            fields.put("paymentOrderNo", paymentOrderNo);
+        }
+        if (StringUtils.hasText(processStatus)) {
+            fields.put("processStatus", processStatus);
+        }
+        return fields;
     }
 
     private record ProcessingOutcome(PayNotifyProcessStatus status, String message) {}

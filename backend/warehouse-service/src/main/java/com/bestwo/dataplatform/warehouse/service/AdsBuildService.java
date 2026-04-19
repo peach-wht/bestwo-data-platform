@@ -12,13 +12,19 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import net.logstash.logback.argument.StructuredArguments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AdsBuildService {
 
+    private static final Logger log = LoggerFactory.getLogger(AdsBuildService.class);
     private static final String JOB_CODE = "build-ads-order-metrics";
     private static final String JOB_NAME = "Build DWS and ADS order metrics from DWD";
     private static final String DWD_TABLE_NAME = "dwd_wx_order_detail";
@@ -49,6 +55,7 @@ public class AdsBuildService {
 
         Instant startedAt = Instant.now();
         String logId = "ADS-" + System.currentTimeMillis();
+        log.info("ads build started {}", StructuredArguments.entries(buildJobFields("ads_build_started", logId, null, null)));
         String runStatus = "SUCCESS";
         String message = "ads build completed";
         Long dwsRowCount = 0L;
@@ -97,6 +104,7 @@ public class AdsBuildService {
         ));
 
         if (!"SUCCESS".equals(runStatus)) {
+            log.error("ads build failed {}", StructuredArguments.entries(buildJobFields("ads_build_failed", logId, runStatus, durationMs)));
             throw new BusinessException(message);
         }
 
@@ -111,6 +119,7 @@ public class AdsBuildService {
         response.setStartedAt(startedAt);
         response.setFinishedAt(finishedAt);
         response.setDurationMs(durationMs);
+        log.info("ads build completed {}", StructuredArguments.entries(buildJobFields("ads_build_completed", logId, runStatus, durationMs)));
         return response;
     }
 
@@ -370,5 +379,19 @@ public class AdsBuildService {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private Map<String, Object> buildJobFields(String event, String logId, String runStatus, Long durationMs) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("event", event);
+        fields.put("jobCode", JOB_CODE);
+        fields.put("logId", logId);
+        if (runStatus != null) {
+            fields.put("runStatus", runStatus);
+        }
+        if (durationMs != null) {
+            fields.put("durationMs", durationMs);
+        }
+        return fields;
     }
 }

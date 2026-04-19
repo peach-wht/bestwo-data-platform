@@ -18,13 +18,19 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import net.logstash.logback.argument.StructuredArguments;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 @Service
 public class OrderSyncService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderSyncService.class);
     private static final String JOB_CODE = "sync-order-to-ods";
     private static final String JOB_NAME = "Sync order-service business tables to Doris ODS";
     private static final int BATCH_SIZE = 100;
@@ -60,6 +66,7 @@ public class OrderSyncService {
 
         Instant startedAt = Instant.now();
         String logId = "SYNC-" + System.currentTimeMillis();
+        log.info("order sync started {}", StructuredArguments.entries(buildJobFields("order_sync_started", logId, null, null)));
 
         long syncedOrderCount = 0L;
         long syncedPaymentOrderCount = 0L;
@@ -104,6 +111,7 @@ public class OrderSyncService {
         ));
 
         if (!"SUCCESS".equals(runStatus)) {
+            log.error("order sync failed {}", StructuredArguments.entries(buildJobFields("order_sync_failed", logId, runStatus, durationMs)));
             throw new BusinessException(message);
         }
 
@@ -118,6 +126,7 @@ public class OrderSyncService {
         response.setStartedAt(startedAt);
         response.setFinishedAt(finishedAt);
         response.setDurationMs(durationMs);
+        log.info("order sync completed {}", StructuredArguments.entries(buildJobFields("order_sync_completed", logId, runStatus, durationMs)));
         return response;
     }
 
@@ -136,6 +145,7 @@ public class OrderSyncService {
             warehouseDorisMapper.insertOdsWxOrders(batch);
             total += batch.size();
             lastId = batch.get(batch.size() - 1).getId();
+            log.info("order sync batch completed {}", StructuredArguments.entries(buildBatchFields("sync_orders_batch", batch.size(), total)));
         }
     }
 
@@ -150,6 +160,11 @@ public class OrderSyncService {
             warehouseDorisMapper.insertOdsWxPaymentOrders(batch);
             total += batch.size();
             lastId = batch.get(batch.size() - 1).getId();
+            log.info("payment order sync batch completed {}", StructuredArguments.entries(buildBatchFields(
+                "sync_payment_orders_batch",
+                batch.size(),
+                total
+            )));
         }
     }
 
@@ -164,6 +179,11 @@ public class OrderSyncService {
             warehouseDorisMapper.insertOdsWxPaymentNotifyLogs(batch);
             total += batch.size();
             lastId = batch.get(batch.size() - 1).getId();
+            log.info("payment notify sync batch completed {}", StructuredArguments.entries(buildBatchFields(
+                "sync_payment_notify_batch",
+                batch.size(),
+                total
+            )));
         }
     }
 
@@ -311,5 +331,28 @@ public class OrderSyncService {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private Map<String, Object> buildJobFields(String event, String logId, String runStatus, Long durationMs) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("event", event);
+        fields.put("jobCode", JOB_CODE);
+        fields.put("logId", logId);
+        if (runStatus != null) {
+            fields.put("runStatus", runStatus);
+        }
+        if (durationMs != null) {
+            fields.put("durationMs", durationMs);
+        }
+        return fields;
+    }
+
+    private Map<String, Object> buildBatchFields(String event, int batchSize, long totalCount) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("event", event);
+        fields.put("jobCode", JOB_CODE);
+        fields.put("batchSize", batchSize);
+        fields.put("totalCount", totalCount);
+        return fields;
     }
 }
