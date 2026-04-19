@@ -35,6 +35,11 @@ spec:
                 secretKeyRef:
                   name: grafana-admin
                   key: admin-password
+            - name: LOKI_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: logging-stack-config
+                  key: loki-query-url
           readinessProbe:
             httpGet:
               path: /api/health

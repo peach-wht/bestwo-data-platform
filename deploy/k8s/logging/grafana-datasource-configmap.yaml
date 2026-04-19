@@ -13,6 +13,6 @@ data:
       - name: Loki
         type: loki
         access: proxy
-        url: http://loki.observability.svc.cluster.local:3100
+        url: $LOKI_DATASOURCE_URL
         isDefault: true
         editable: false

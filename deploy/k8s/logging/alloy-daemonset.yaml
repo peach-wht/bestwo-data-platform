@@ -30,6 +30,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: LOKI_PUSH_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: logging-stack-config
+                  key: loki-push-url
           ports:
             - name: http
               containerPort: 12345

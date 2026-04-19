@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logging-stack-config
+  namespace: observability
+  labels:
+    app.kubernetes.io/part-of: bestwo-data-platform
+data:
+  loki-push-url: http://loki-gateway.observability.svc.cluster.local/loki/api/v1/push
+  loki-query-url: http://loki-gateway.observability.svc.cluster.local

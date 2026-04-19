@@ -9,6 +9,7 @@
 - Servlet / WebFlux 统一接入访问日志
 - 订单、预支付、支付回调、数仓任务这些关键链路补齐业务事件日志
 - 集群侧用 Grafana Alloy 采集，用 Loki 存储，用 Grafana 查询
+- Loki 默认按“复用现有线上实例”接入，而不是在这个仓库里强制重复部署
 
 ## 已落地内容
 
@@ -93,12 +94,18 @@ logging:
 2. 下游 `order-service` / `warehouse-service` 继承同一个 `traceId`
 3. 各服务将访问日志和业务日志输出为 JSON
 4. `Grafana Alloy` 以 DaemonSet 方式从 Kubernetes API 采集 Pod 日志
-5. `Loki` 负责存储和索引
+5. 线上已有 `Loki` 负责存储和索引
 6. `Grafana` 作为查询与排障入口
 
 部署清单位置：
 
 - `deploy/k8s/logging`
+
+其中：
+
+- `Alloy` 通过 `LOKI_PUSH_URL` 写入现有 Loki
+- `Grafana` 通过 `LOKI_DATASOURCE_URL` 连接现有 Loki
+- 地址来源于 `deploy/k8s/logging/logging-stack-configmap.yaml`
 
 ## 推荐查询方式
 
@@ -130,9 +137,8 @@ logging:
 
 这次交付的是一套可以直接跑起来的集群日志基线，重点先把“统一产生日志”和“统一收集检索”做扎实。
 
-当前 `deploy/k8s/logging` 里的 Loki 采用单实例 + PVC，更适合当前项目规模和 k3s 场景。后续如果你要走更强的高可用，可以继续升级为：
+当前默认方案是复用你线上已部署的 Loki，仓库重点负责“应用侧统一日志”和“采集接入配置”。后续如果你要继续增强，可以沿着现有 Loki 继续升级：
 
-- Loki 分布式读写后端模式
 - 对象存储切到 OSS / S3
 - 加上告警规则与日志派生指标
 - 再把 Trace/Metric 接到完整 LGTM 栈
