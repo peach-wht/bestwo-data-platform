@@ -1,1 +1,3 @@
 com.bestwo.dataplatform.common.logging.BestwoLoggingAutoConfiguration
+com.bestwo.dataplatform.common.logging.BestwoReactiveLoggingAutoConfiguration
+com.bestwo.dataplatform.common.logging.BestwoServletLoggingAutoConfiguration
